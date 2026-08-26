@@ -1,0 +1,6 @@
+{
+  "name": "Grad Career Aid",
+  "description": "AI-powered career assistant for graduate students with resume analysis, interview prep, skill gap analysis, and cover letter builder.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
