@@ -165,7 +165,9 @@ function Analyze() {
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 truncate text-sm font-semibold">
                       <CheckCircle2 className="size-4 shrink-0 text-success" />
-                      {resume.file_name}
+                      {resume.name ||
+                        (resume as unknown as { file_name?: string }).file_name ||
+                        "Resume.pdf"}
                     </p>
                     <p className="text-xs text-muted-foreground">{resume.size}</p>
                   </div>

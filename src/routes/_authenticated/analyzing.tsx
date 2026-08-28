@@ -58,16 +58,16 @@ function Analyzing() {
 
       if (!resumeText && resumeId) {
         const resumeRow = await resumeService.getResumeById(resumeId);
-        if (resumeRow?.content) {
-          resumeText = resumeRow.content;
+        if (resumeRow?.extracted_text) {
+          resumeText = resumeRow.extracted_text;
         }
       }
 
       if (!resumeText) {
         // If no uploaded resume in session, check if user has existing resume in DB
         const userResumes = await resumeService.listResumes();
-        if (userResumes.length > 0 && userResumes[0]?.content) {
-          resumeText = userResumes[0].content;
+        if (userResumes.length > 0 && userResumes[0]?.extracted_text) {
+          resumeText = userResumes[0].extracted_text;
         } else {
           // Default sample resume text if user jumped directly to analysis
           resumeText = `

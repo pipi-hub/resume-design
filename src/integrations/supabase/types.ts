@@ -1,171 +1,323 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.15";
   };
   public: {
     Tables: {
-      analyses: {
+      resumes: {
         Row: {
-          ats_score: number | null;
-          company: string | null;
-          created_at: string;
           id: string;
-          job_description: string | null;
-          job_title: string | null;
-          match_score: number | null;
-          quality_score: number | null;
-          report: Json;
-          resume_id: string | null;
-          resume_title: string | null;
           user_id: string;
+          name: string | null;
+          file_url: string | null;
+          file_path: string | null;
+          extracted_text: string | null;
+          file_type: string | null;
+          file_size: string | null;
+          latest_score: number | null;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
-          ats_score?: number | null;
-          company?: string | null;
-          created_at?: string;
           id?: string;
-          job_description?: string | null;
-          job_title?: string | null;
-          match_score?: number | null;
-          quality_score?: number | null;
-          report?: Json;
-          resume_id?: string | null;
-          resume_title?: string | null;
           user_id: string;
+          name?: string | null;
+          file_url?: string | null;
+          file_path?: string | null;
+          extracted_text?: string | null;
+          file_type?: string | null;
+          file_size?: string | null;
+          latest_score?: number | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
-          ats_score?: number | null;
-          company?: string | null;
-          created_at?: string;
           id?: string;
-          job_description?: string | null;
-          job_title?: string | null;
-          match_score?: number | null;
-          quality_score?: number | null;
-          report?: Json;
-          resume_id?: string | null;
-          resume_title?: string | null;
           user_id?: string;
+          name?: string | null;
+          file_url?: string | null;
+          file_path?: string | null;
+          extracted_text?: string | null;
+          file_type?: string | null;
+          file_size?: string | null;
+          latest_score?: number | null;
+          created_at?: string;
+          updated_at?: string;
         };
-        Relationships: [
-          {
-            foreignKeyName: "analyses_resume_id_fkey";
-            columns: ["resume_id"];
-            isOneToOne: false;
-            referencedRelation: "resumes";
-            referencedColumns: ["id"];
-          },
-        ];
+        Relationships: [];
+      };
+      resumes_builder: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string | null;
+          template: string | null;
+          resume_data: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title?: string | null;
+          template?: string | null;
+          resume_data?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string | null;
+          template?: string | null;
+          resume_data?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      resume_analyses: {
+        Row: {
+          id: string;
+          user_id: string;
+          resume_id: string | null;
+          resume_name: string | null;
+          ats_score: number | null;
+          breakdown: Json | null;
+          summary: string | null;
+          strengths: Json | null;
+          weaknesses: Json | null;
+          missing_skills: Json | null;
+          keywords: Json | null;
+          section_analysis: Json | null;
+          suggestions: Json | null;
+          raw_text: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          resume_id?: string | null;
+          resume_name?: string | null;
+          ats_score?: number | null;
+          breakdown?: Json | null;
+          summary?: string | null;
+          strengths?: Json | null;
+          weaknesses?: Json | null;
+          missing_skills?: Json | null;
+          keywords?: Json | null;
+          section_analysis?: Json | null;
+          suggestions?: Json | null;
+          raw_text?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          resume_id?: string | null;
+          resume_name?: string | null;
+          ats_score?: number | null;
+          breakdown?: Json | null;
+          summary?: string | null;
+          strengths?: Json | null;
+          weaknesses?: Json | null;
+          missing_skills?: Json | null;
+          keywords?: Json | null;
+          section_analysis?: Json | null;
+          suggestions?: Json | null;
+          raw_text?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
       };
       cover_letters: {
         Row: {
-          company: string | null;
-          content: string;
-          created_at: string;
           id: string;
+          user_id: string;
+          resume_id: string | null;
+          company_name: string | null;
           job_title: string | null;
           tone: string | null;
+          content: string | null;
+          created_at: string;
           updated_at: string;
-          user_id: string;
         };
         Insert: {
-          company?: string | null;
-          content?: string;
-          created_at?: string;
           id?: string;
+          user_id: string;
+          resume_id?: string | null;
+          company_name?: string | null;
           job_title?: string | null;
           tone?: string | null;
+          content?: string | null;
+          created_at?: string;
           updated_at?: string;
-          user_id: string;
         };
         Update: {
-          company?: string | null;
-          content?: string;
-          created_at?: string;
           id?: string;
+          user_id?: string;
+          resume_id?: string | null;
+          company_name?: string | null;
           job_title?: string | null;
           tone?: string | null;
+          content?: string | null;
+          created_at?: string;
           updated_at?: string;
-          user_id?: string;
         };
         Relationships: [];
       };
       profiles: {
         Row: {
-          career_level: string | null;
-          created_at: string;
-          email: string | null;
-          full_name: string;
-          github: string | null;
           id: string;
-          linkedin: string | null;
-          location: string | null;
-          skills: string[];
+          user_id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+          career_goal: string | null;
+          experience_level: string | null;
           target_role: string | null;
+          created_at: string;
           updated_at: string;
         };
         Insert: {
-          career_level?: string | null;
-          created_at?: string;
-          email?: string | null;
-          full_name?: string;
-          github?: string | null;
-          id: string;
-          linkedin?: string | null;
-          location?: string | null;
-          skills?: string[];
+          id?: string;
+          user_id: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          career_goal?: string | null;
+          experience_level?: string | null;
           target_role?: string | null;
+          created_at?: string;
           updated_at?: string;
         };
         Update: {
-          career_level?: string | null;
-          created_at?: string;
-          email?: string | null;
-          full_name?: string;
-          github?: string | null;
           id?: string;
-          linkedin?: string | null;
-          location?: string | null;
-          skills?: string[];
+          user_id?: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          career_goal?: string | null;
+          experience_level?: string | null;
           target_role?: string | null;
+          created_at?: string;
           updated_at?: string;
         };
         Relationships: [];
       };
-      resumes: {
+      skill_gap_analyses: {
         Row: {
-          content: string | null;
-          created_at: string;
-          file_name: string | null;
-          file_path: string | null;
           id: string;
-          title: string;
-          updated_at: string;
           user_id: string;
+          resume_id: string | null;
+          resume_name: string | null;
+          target_role: string | null;
+          matching_skills: Json | null;
+          missing_skills: Json | null;
+          overall_readiness: number | null;
+          action_plan: Json | null;
+          created_at: string;
         };
         Insert: {
-          content?: string | null;
-          created_at?: string;
-          file_name?: string | null;
-          file_path?: string | null;
           id?: string;
-          title?: string;
-          updated_at?: string;
           user_id: string;
+          resume_id?: string | null;
+          resume_name?: string | null;
+          target_role?: string | null;
+          matching_skills?: Json | null;
+          missing_skills?: Json | null;
+          overall_readiness?: number | null;
+          action_plan?: Json | null;
+          created_at?: string;
         };
         Update: {
-          content?: string | null;
-          created_at?: string;
-          file_name?: string | null;
-          file_path?: string | null;
           id?: string;
-          title?: string;
-          updated_at?: string;
           user_id?: string;
+          resume_id?: string | null;
+          resume_name?: string | null;
+          target_role?: string | null;
+          matching_skills?: Json | null;
+          missing_skills?: Json | null;
+          overall_readiness?: number | null;
+          action_plan?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      job_descriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string | null;
+          company: string | null;
+          description: string | null;
+          match_score: number | null;
+          matching_skills: Json | null;
+          missing_skills: Json | null;
+          relevant_keywords: Json | null;
+          match_data: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title?: string | null;
+          company?: string | null;
+          description?: string | null;
+          match_score?: number | null;
+          matching_skills?: Json | null;
+          missing_skills?: Json | null;
+          relevant_keywords?: Json | null;
+          match_data?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string | null;
+          company?: string | null;
+          description?: string | null;
+          match_score?: number | null;
+          matching_skills?: Json | null;
+          missing_skills?: Json | null;
+          relevant_keywords?: Json | null;
+          match_data?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      interview_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          role: string | null;
+          experience_level: string | null;
+          job_description: string | null;
+          resume_name: string | null;
+          questions: Json | null;
+          average_score: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          role?: string | null;
+          experience_level?: string | null;
+          job_description?: string | null;
+          resume_name?: string | null;
+          questions?: Json | null;
+          average_score?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          role?: string | null;
+          experience_level?: string | null;
+          job_description?: string | null;
+          resume_name?: string | null;
+          questions?: Json | null;
+          average_score?: number | null;
+          created_at?: string;
         };
         Relationships: [];
       };

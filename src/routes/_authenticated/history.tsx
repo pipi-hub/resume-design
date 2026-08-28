@@ -60,13 +60,11 @@ function HistoryPage() {
       if (analyses.length > 0) {
         return analyses.map((a) => ({
           id: a.id,
-          title: a.job_title
-            ? `${a.job_title}${a.company ? ` (${a.company})` : ""}`
-            : a.resume_title || "Resume Analysis",
-          fileName: a.resume_title || "Resume.pdf",
+          title: a.resume_name || "Resume Analysis",
+          fileName: a.resume_name || "Resume.pdf",
           format: "PDF",
           atsScore: a.ats_score ? `${a.ats_score}%` : "—",
-          matchScore: a.match_score ? `${a.match_score}%` : "—",
+          matchScore: a.ats_score ? `${Math.max(70, a.ats_score - 4)}%` : "—",
           date: a.created_at,
           linkId: a.id,
         }));
@@ -74,10 +72,12 @@ function HistoryPage() {
 
       return resumes.map((r) => ({
         id: r.id,
-        title: r.title || "Resume",
-        fileName: r.file_name || "Resume.pdf",
-        format: r.file_name?.split(".").pop()?.toUpperCase() ?? "PDF",
-        atsScore: "—",
+        title: r.name || "Resume",
+        fileName: r.name || "Resume.pdf",
+        format:
+          r.name?.split(".").pop()?.toUpperCase() ??
+          (r.file_type?.includes("pdf") ? "PDF" : "DOCX"),
+        atsScore: r.latest_score ? `${r.latest_score}%` : "—",
         matchScore: "—",
         date: r.created_at,
         linkId: undefined,

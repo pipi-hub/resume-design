@@ -78,10 +78,11 @@ function Analysis() {
         if (search.id) {
           const row = await resumeService.getAnalysisById(search.id);
           if (row) {
-            if (row.job_title) setAnalysisTitle(row.job_title);
-            if (row.company) setAnalysisCompany(row.company);
-            if (row.report && typeof row.report === "object") {
-              setData(row.report as unknown as AnalysisResult);
+            if (row.resume_name) setAnalysisTitle(row.resume_name);
+            const reportData = (row.breakdown ||
+              (row as unknown as { report?: unknown }).report) as AnalysisResult | null;
+            if (reportData && typeof reportData === "object" && "atsScore" in reportData) {
+              setData(reportData);
               setLoading(false);
               return;
             }
@@ -90,15 +91,20 @@ function Analysis() {
 
         // Try getting from latest DB analysis or session storage
         const latest = await resumeService.getLatestAnalysis();
-        if (latest && latest.report && typeof latest.report === "object") {
-          if (latest.job_title) setAnalysisTitle(latest.job_title);
-          if (latest.company) setAnalysisCompany(latest.company);
-          setData(latest.report as unknown as AnalysisResult);
-        } else {
-          const cached = sessionStorage.getItem("resumate_latest_analysis_data");
-          if (cached) {
-            setData(JSON.parse(cached));
+        if (latest) {
+          if (latest.resume_name) setAnalysisTitle(latest.resume_name);
+          const reportData = (latest.breakdown ||
+            (latest as unknown as { report?: unknown }).report) as AnalysisResult | null;
+          if (reportData && typeof reportData === "object" && "atsScore" in reportData) {
+            setData(reportData);
+            setLoading(false);
+            return;
           }
+        }
+
+        const cached = sessionStorage.getItem("resumate_latest_analysis_data");
+        if (cached) {
+          setData(JSON.parse(cached));
         }
       } catch (err) {
         console.warn("Could not load stored analysis:", err);

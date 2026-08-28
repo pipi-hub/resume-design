@@ -71,10 +71,16 @@ function CoverLetter() {
         const letters = await resumeService.listCoverLetters();
         setSavedLetters(letters);
         if (letters.length > 0) {
-          setLetter((curr) => curr || letters[0].content);
+          setLetter((curr) => curr || letters[0].content || "");
           setCurrentLetterId(letters[0].id);
           if (letters[0].job_title) setRole(letters[0].job_title);
-          if (letters[0].company) setCompany(letters[0].company);
+          if (letters[0].company_name || (letters[0] as unknown as { company?: string }).company) {
+            setCompany(
+              letters[0].company_name ||
+                (letters[0] as unknown as { company?: string }).company ||
+                "Company",
+            );
+          }
           if (letters[0].tone) setTone(letters[0].tone);
         }
       } catch (e) {
@@ -257,10 +263,19 @@ function CoverLetter() {
                     <div
                       key={item.id}
                       onClick={() => {
-                        setLetter(item.content);
+                        setLetter(item.content || "");
                         setCurrentLetterId(item.id);
                         if (item.job_title) setRole(item.job_title);
-                        if (item.company) setCompany(item.company);
+                        if (
+                          item.company_name ||
+                          (item as unknown as { company?: string }).company
+                        ) {
+                          setCompany(
+                            item.company_name ||
+                              (item as unknown as { company?: string }).company ||
+                              "Company",
+                          );
+                        }
                         if (item.tone) setTone(item.tone);
                       }}
                       className={`group flex items-center justify-between p-2.5 rounded-lg border text-xs cursor-pointer transition-colors ${
@@ -271,7 +286,10 @@ function CoverLetter() {
                     >
                       <div className="truncate pr-2">
                         <p className="font-semibold truncate">
-                          {item.job_title || "Role"} • {item.company || "Company"}
+                          {item.job_title || "Role"} •{" "}
+                          {item.company_name ||
+                            (item as unknown as { company?: string }).company ||
+                            "Company"}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
                           {new Date(item.created_at).toLocaleDateString()} •{" "}
