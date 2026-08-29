@@ -186,9 +186,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (latest) {
         if (latest.resume_name) setActiveResumeName(latest.resume_name);
         setLatestAnalysisId(latest.id);
-        const report = (latest.breakdown ||
-          (latest as unknown as { report?: unknown }).report) as AnalysisResult | null;
-        if (report && typeof report === "object") {
+        const report = resumeService.parseAnalysisBreakdown(latest);
+        if (report) {
           setLatestAnalysisState(report);
           try {
             sessionStorage.setItem("resumate_latest_analysis_data", JSON.stringify(report));

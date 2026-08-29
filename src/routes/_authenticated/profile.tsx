@@ -80,7 +80,11 @@ function Profile() {
           setForm({
             name: prof.full_name || user?.user_metadata?.["full_name"] || defaultUser.name,
             email: prof.email || user?.email || defaultUser.email,
-            careerLevel: prof.career_level || defaultUser.careerLevel,
+            careerLevel:
+              prof.career_level ||
+              prof.experience_level ||
+              user?.user_metadata?.["career_level"] ||
+              defaultUser.careerLevel,
             targetRole: prof.target_role || defaultUser.targetRole,
             location: prof.location || defaultUser.location,
             linkedin: prof.linkedin || defaultUser.linkedin,

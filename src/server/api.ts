@@ -128,7 +128,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
 
     if (path === "/api/generate-cover-letter" && request.method === "POST") {
       const body = await request.json();
-      const { resumeText, jobTitle, company, tone, highlight } = body;
+      const { resumeText, jobTitle, company, jobDescription, tone, highlight } = body;
       if (!jobTitle || !company) {
         return new Response(JSON.stringify({ error: "jobTitle and company are required" }), {
           status: 400,
@@ -140,6 +140,7 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         resumeText: resumeText || "",
         jobTitle,
         company,
+        jobDescription,
         tone,
         highlight,
       });

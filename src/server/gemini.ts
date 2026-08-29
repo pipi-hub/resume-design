@@ -1010,6 +1010,7 @@ export async function generateCoverLetterWithGemini(params: {
   resumeText: string;
   jobTitle: string;
   company: string;
+  jobDescription?: string;
   tone?: string;
   highlight?: string;
 }): Promise<{ letter: string } & AiProviderMetadata> {
@@ -1024,19 +1025,34 @@ Tone: ${params.tone || "Professional"}
 
 Candidate Resume:
 """
-${params.resumeText || "Candidate with relevant technical and project background."}
+${params.resumeText || "No detailed resume text provided."}
 """
 
-${params.highlight ? `Specific Points to Highlight: ${params.highlight}` : ""}
+${params.jobDescription ? `Job Description / Company Context:\n"""\n${params.jobDescription}\n"""\n` : ""}
+${params.highlight ? `User-Provided Highlight / Focus Note:\n"${params.highlight}"\n` : ""}
 
-Guidelines:
-1. Write 3-4 structured paragraphs:
-   - Paragraph 1: Enthusiastic opening stating the position, company, and immediate value proposition.
-   - Paragraph 2: Core technical achievements, relevant academic/internship background, and concrete project outcomes extracted from the candidate's resume.
-   - Paragraph 3: Why this specific company/role aligns with candidate's passion, highlighting culture and shared mission. Incorporate any requested highlight.
-   - Paragraph 4: Confident closing with a call to action.
-2. Maintain the chosen tone (${params.tone || "Professional"}).
-3. Do not use generic placeholders like [Your Name] inside sentences if candidate details can be inferred, but format cleanly.
+==============================
+MANDATORY STRICT EVIDENCE-GROUNDING RULES (ZERO HALLUCINATIONS):
+==============================
+1. CANDIDATE EVIDENCE REQUIREMENT:
+   - Every candidate-specific achievement, responsibility, technology, framework, tool, metric, project, role, past employer, teaching method, and experience MUST be directly supported by the supplied resume text.
+   - DO NOT invent unverified responsibilities, such as mentoring, team leadership, managing people, remote teaching, curriculum ownership, production deployment experience, enterprise scale, on-call duty, or academic competition involvement, unless explicitly documented in the resume.
+   - DO NOT convert a general listed skill (e.g., "Python", "SQL", "Communication") into a fictional past project or specific accomplishment. Refer to skills truthfully as competencies or coursework/project tools.
+   - PRESERVE REAL METRICS EXACTLY: If the resume contains verified metrics (e.g., "improved performance by 20%", "managed 500+ records", "98% test coverage"), preserve those exact numbers. If no metrics exist, NEVER invent percentages, user counts, revenue, latency reductions, or time savings.
+   - INSUFFICIENT EVIDENCE: When evidence on a topic is sparse or missing, use neutral, honest wording (e.g., "Through my academic coursework and project experience...", "My practical background with [listed skills]...") rather than inventing imaginary details.
+
+2. JOB & COMPANY GROUNDING:
+   - All job- and company-specific claims must strictly come from the supplied job description, the target job title ("${params.jobTitle}"), the company name ("${params.company}"), or the explicitly provided user highlight.
+   - Do not invent proprietary internal company projects, undisclosed tech stack details, or fictional company news.
+
+3. STRUCTURE & PROFESSIONAL WRITING:
+   - Structured in 3-4 cohesive paragraphs:
+     * Paragraph 1: Enthusiastic, clear opening stating the position (${params.jobTitle}) and company (${params.company}), referencing the candidate's actual background.
+     * Paragraph 2: Core relevant technical competencies, real projects, or verified experience directly drawn from the resume.
+     * Paragraph 3: Alignment with the role/company, incorporating any user-provided highlight accurately.
+     * Paragraph 4: Professional closing with an appropriate call to action.
+   - Tone: Match the requested tone (${params.tone || "Professional"}) while remaining 100% grounded in verifiable truth.
+   - Formatting: Output clean, complete letter text. Use candidate contact info or name if present in the resume; otherwise, use standard professional formatting without placeholder brackets like [Your Name] in the text body.
 
 Return ONLY the full cover letter text.`;
 
@@ -1076,6 +1092,7 @@ function synthesizeTailoredCoverLetter(params: {
   resumeText: string;
   jobTitle: string;
   company: string;
+  jobDescription?: string;
   tone?: string;
   highlight?: string;
 }): string {
@@ -1141,7 +1158,7 @@ function synthesizeTailoredCoverLetter(params: {
   const skillsList =
     detectedSkills.length > 0
       ? detectedSkills.slice(0, 5).join(", ")
-      : "software architecture, system design, and modern production engineering";
+      : "core technical competencies and structured problem-solving";
 
   // Extract key project details if present
   let projectSnippet = "";
@@ -1159,43 +1176,43 @@ function synthesizeTailoredCoverLetter(params: {
 
   if (tone === "enthusiastic") {
     salutation = `Dear ${params.company} Hiring Team,`;
-    opening = `I was thrilled to see the opening for the ${params.jobTitle} position at ${params.company}. Having followed your innovative work and engineering culture, I am incredibly excited about the opportunity to contribute my skills in ${skillsList} to your growing team.`;
-    closing = `I am eager to bring my energy, technical dedication, and collaborative mindset to ${params.company}. I would love the chance to discuss how my background and enthusiasm make me a strong fit for this role.`;
+    opening = `I am excited to submit my application for the ${params.jobTitle} position at ${params.company}. With a background emphasizing ${skillsList}, I am motivated by the opportunity to contribute my skills to your team.`;
+    closing = `I am eager to bring my dedication, technical skill set, and collaborative approach to ${params.company}. I welcome the chance to discuss how my background aligns with this role.`;
     signoff = "Warm regards,";
   } else if (tone === "friendly") {
     salutation = `Hello ${params.company} Team,`;
-    opening = `I am excited to submit my application for the ${params.jobTitle} role at ${params.company}. With hands-on experience developing projects with ${skillsList}, I am passionate about building intuitive, reliable software alongside great teammates.`;
-    closing = `I would welcome the opportunity to connect and learn more about your upcoming goals. Thank you for your time and consideration!`;
+    opening = `I am glad to apply for the ${params.jobTitle} role at ${params.company}. Having built practical experience with ${skillsList}, I enjoy building reliable software and collaborating with colleagues on meaningful projects.`;
+    closing = `I would welcome the opportunity to connect and discuss how I can support your goals. Thank you for your time and consideration!`;
     signoff = "Best regards,";
   } else if (tone === "formal") {
     salutation = `Dear Hiring Manager,`;
-    opening = `I am writing to formally submit my application for the ${params.jobTitle} position at ${params.company}. With a rigorous background in software engineering and demonstrated proficiency in ${skillsList}, I am confident in my ability to deliver immediate value to your organization.`;
-    closing = `Thank you for your consideration of my candidacy. I look forward to the opportunity to discuss my qualifications and how I can contribute to the strategic objectives of ${params.company} in greater detail.`;
+    opening = `I am writing to formally submit my application for the ${params.jobTitle} position at ${params.company}. With foundational experience in ${skillsList}, I am prepared to contribute effectively to your organization's objectives.`;
+    closing = `Thank you for your consideration of my candidacy. I look forward to the opportunity to discuss my qualifications for the ${params.jobTitle} role in greater detail.`;
     signoff = "Respectfully,";
   } else {
     // Default Professional
     salutation = `Dear Hiring Manager at ${params.company},`;
-    opening = `I am writing to express my strong interest in the ${params.jobTitle} position at ${params.company}. Combining practical experience in ${skillsList} with a passion for building scalable, high-quality systems, I am prepared to contribute effectively to your team's initiatives.`;
-    closing = `Thank you for reviewing my application. I would welcome the opportunity to discuss how my experience and technical skill set align with your goals for the ${params.jobTitle} role.`;
+    opening = `I am writing to express my interest in the ${params.jobTitle} position at ${params.company}. Combining practical experience in ${skillsList} with a commitment to high-quality execution, I am prepared to support your team's initiatives.`;
+    closing = `Thank you for reviewing my application. I would welcome the opportunity to discuss how my experience and skill set align with your goals for the ${params.jobTitle} role.`;
     signoff = "Sincerely,";
   }
 
-  // Body paragraph with resume-grounded achievements
+  // Body paragraph with strictly resume-grounded achievements
   let experienceBody = "";
   if (projectSnippet) {
-    experienceBody = `Throughout my hands-on technical work, I have focused on designing scalable architectures and writing clean, maintainable code. For example, ${projectSnippet.charAt(0).toLowerCase() + projectSnippet.slice(1)}. Leveraging ${skillsList}, I prioritize building resilient systems that solve real-world problems.`;
+    experienceBody = `In my technical work, I have gained hands-on experience applying my skills to concrete projects, including: ${projectSnippet.charAt(0).toLowerCase() + projectSnippet.slice(1)}. Leveraging ${skillsList}, I focus on writing clean, well-tested code and delivering reliable solutions.`;
   } else if (resume.length > 50) {
-    experienceBody = `Throughout my academic and project work, I have focused on designing scalable architectures and writing clean, maintainable code. My practical experience with ${skillsList} has enabled me to take features from initial requirements through deployment, emphasizing system performance and user experience.`;
+    experienceBody = `Throughout my academic and project coursework, I have developed practical familiarity with ${skillsList}. My experience has reinforced the importance of systematic testing, clear documentation, and consistent attention to detail.`;
   } else {
-    experienceBody = `My technical background has equipped me with strong problem-solving capabilities and experience collaborating on software development lifecycles. I prioritize building well-documented, test-driven applications that solve real-world problems.`;
+    experienceBody = `My technical background has equipped me with a solid foundation in ${skillsList} and structured analytical problem-solving.`;
   }
 
   // Highlight paragraph
   let highlightBody = "";
   if (params.highlight && params.highlight.trim()) {
-    highlightBody = `In particular, I would like to highlight: ${params.highlight.trim()}. This experience strengthened my ability to solve complex technical challenges and work collaboratively under agile development standards.`;
+    highlightBody = `In particular, I would like to highlight: ${params.highlight.trim()}. This experience strengthened my ability to solve technical problems and collaborate effectively.`;
   } else {
-    highlightBody = `What particularly draws me to ${params.company} is your commitment to delivering impactful solutions. I am eager to apply my technical foundation in ${params.jobTitle.toLowerCase().includes("engineer") ? "engineering" : "this role"} to help achieve ${params.company}'s mission.`;
+    highlightBody = `What draws me to ${params.company} is the opportunity to contribute to the ${params.jobTitle} position. I am eager to apply my background in ${skillsList} toward your team's goals.`;
   }
 
   const today = new Date().toLocaleDateString("en-US", {

@@ -159,6 +159,65 @@ export const resumeService = {
   },
 
   /**
+   * Authoritative normalization helper for AnalysisResult.
+   * Parses JSON breakdown or database columns to ensure consistent ATS Score, Job Match, and Quality Score.
+   */
+  parseAnalysisBreakdown(
+    row: AnalysisRow | Record<string, unknown> | null | undefined,
+  ): AnalysisResult | null {
+    if (!row) return null;
+
+    let parsed: Partial<AnalysisResult> | null = null;
+    const rawBreakdown = (row as AnalysisRow).breakdown ?? (row as Record<string, unknown>).report;
+
+    if (typeof rawBreakdown === "string") {
+      try {
+        parsed = JSON.parse(rawBreakdown);
+      } catch {
+        parsed = null;
+      }
+    } else if (rawBreakdown && typeof rawBreakdown === "object") {
+      parsed = rawBreakdown as Partial<AnalysisResult>;
+    }
+
+    const rowAts =
+      typeof (row as AnalysisRow).ats_score === "number" ? (row as AnalysisRow).ats_score : null;
+    const rowMatch =
+      typeof (row as Record<string, unknown>).match_score === "number"
+        ? ((row as Record<string, unknown>).match_score as number)
+        : null;
+    const rowQuality =
+      typeof (row as Record<string, unknown>).quality_score === "number"
+        ? ((row as Record<string, unknown>).quality_score as number)
+        : null;
+
+    const atsScore = parsed?.atsScore ?? rowAts ?? 0;
+    const jobMatch = parsed?.jobMatch ?? rowMatch ?? rowAts ?? 0;
+    const qualityScore =
+      parsed?.qualityScore ?? rowQuality ?? (rowAts ? Math.max(40, rowAts - 5) : 0);
+
+    return {
+      atsScore,
+      jobMatch,
+      qualityScore,
+      executiveSummary:
+        parsed?.executiveSummary || (row as AnalysisRow).summary || "Analysis report",
+      atsBreakdown: parsed?.atsBreakdown || [],
+      requirementMatches: parsed?.requirementMatches || [],
+      keywordsHave: parsed?.keywordsHave || [],
+      keywordsMissing: parsed?.keywordsMissing || [],
+      keywordWordingGaps: parsed?.keywordWordingGaps || [],
+      keywordsImportant: parsed?.keywordsImportant || [],
+      strengths: parsed?.strengths || ((row as AnalysisRow).strengths as unknown as string[]) || [],
+      weaknesses:
+        parsed?.weaknesses || ((row as AnalysisRow).weaknesses as unknown as string[]) || [],
+      sectionStatus: parsed?.sectionStatus || [],
+      suggestions: parsed?.suggestions || [],
+      skillGaps: parsed?.skillGaps || [],
+    };
+  },
+
+  /**
    * Performs real AI analysis on a resume against a job description.
    * Persists the resulting report to Supabase `resume_analyses` table.
    */
@@ -197,29 +256,41 @@ export const resumeService = {
       if (resume) resumeTitle = resume.name || resumeTitle;
     }
 
-    const { data, error } = await supabase
+    const insertPayload = {
+      user_id: params.userId,
+      resume_id: params.resumeId || null,
+      resume_name: resumeTitle,
+      ats_score: result.atsScore,
+      match_score: result.jobMatch,
+      quality_score: result.qualityScore,
+      summary: result.executiveSummary || `Analysis for ${resumeTitle}`,
+      strengths: result.strengths as unknown as Json,
+      weaknesses: result.weaknesses as unknown as Json,
+      missing_skills: result.keywordsMissing as unknown as Json,
+      keywords: {
+        have: result.keywordsHave,
+        missing: result.keywordsMissing,
+        important: result.keywordsImportant,
+      } as unknown as Json,
+      section_analysis: result.sectionStatus as unknown as Json,
+      suggestions: result.suggestions as unknown as Json,
+      raw_text: params.resumeText,
+      breakdown: result as unknown as Json,
+    };
+
+    let { data, error } = await supabase
       .from("resume_analyses")
-      .insert({
-        user_id: params.userId,
-        resume_id: params.resumeId || null,
-        resume_name: resumeTitle,
-        ats_score: result.atsScore,
-        summary: result.executiveSummary || `Analysis for ${resumeTitle}`,
-        strengths: result.strengths as unknown as Json,
-        weaknesses: result.weaknesses as unknown as Json,
-        missing_skills: result.keywordsMissing as unknown as Json,
-        keywords: {
-          have: result.keywordsHave,
-          missing: result.keywordsMissing,
-          important: result.keywordsImportant,
-        } as unknown as Json,
-        section_analysis: result.sectionStatus as unknown as Json,
-        suggestions: result.suggestions as unknown as Json,
-        raw_text: params.resumeText,
-        breakdown: result as unknown as Json,
-      })
+      .insert(insertPayload)
       .select()
       .single();
+
+    // Fallback if remote schema cache does not have match_score/quality_score yet
+    if (error && error.message.includes("column")) {
+      const { match_score: _m, quality_score: _q, ...fallbackPayload } = insertPayload;
+      const res = await supabase.from("resume_analyses").insert(fallbackPayload).select().single();
+      data = res.data;
+      error = res.error;
+    }
 
     if (error) {
       console.warn("Failed to persist analysis to DB:", error.message);
@@ -322,6 +393,7 @@ export const resumeService = {
     resumeText?: string | undefined;
     jobTitle: string;
     company: string;
+    jobDescription?: string | undefined;
     tone?: string | undefined;
     highlight?: string | undefined;
     userId?: string | undefined;
@@ -507,12 +579,21 @@ export const resumeService = {
    * Gets user profile from Supabase.
    */
   async getProfile(userId: string): Promise<ProfileRow | null> {
+    // Query by user_id first, fallback to id = userId for UUID primary key schema
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("user_id", userId)
+      .or(`user_id.eq.${userId},id.eq.${userId}`)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+
+    if (error) {
+      // If error (e.g. column user_id or id issue), try simple id lookup
+      const fallback = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+      if (fallback.error && !fallback.error.message.includes("schema cache")) {
+        throw new Error(fallback.error.message);
+      }
+      return fallback.data || null;
+    }
     return data;
   },
 
@@ -520,17 +601,54 @@ export const resumeService = {
    * Updates user profile in Supabase.
    */
   async updateProfile(userId: string, updates: Partial<ProfileRow>): Promise<ProfileRow> {
-    const { data, error } = await supabase
+    const payload: Record<string, unknown> = {
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Attempt update by user_id
+    let res = await supabase
       .from("profiles")
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq("user_id", userId)
       .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data;
+      .maybeSingle();
+
+    // If no row updated or user_id column difference, try update by id
+    if (!res.data && !res.error) {
+      res = await supabase.from("profiles").update(payload).eq("id", userId).select().maybeSingle();
+    }
+
+    // If still no row, try upserting profile
+    if (!res.data && !res.error) {
+      const upsertPayload: Record<string, unknown> = {
+        id: userId,
+        user_id: userId,
+        ...payload,
+      };
+      res = await supabase.from("profiles").upsert(upsertPayload).select().maybeSingle();
+    }
+
+    if (res.error) {
+      // If error mentions a missing column in remote schema cache (e.g. career_level vs experience_level)
+      if (res.error.message.includes("career_level") && payload["career_level"]) {
+        const fallbackPayload = {
+          ...payload,
+          experience_level: payload["career_level"],
+        };
+        delete fallbackPayload["career_level"];
+        const fallbackRes = await supabase
+          .from("profiles")
+          .upsert({ id: userId, user_id: userId, ...fallbackPayload })
+          .select()
+          .single();
+        if (fallbackRes.error) throw new Error(fallbackRes.error.message);
+        return fallbackRes.data;
+      }
+      throw new Error(res.error.message);
+    }
+
+    return res.data as ProfileRow;
   },
 
   /**
@@ -560,21 +678,51 @@ export const resumeService = {
       profileRes.status === "fulfilled" && profileRes.value.data ? profileRes.value.data : null;
 
     const totalAnalyses = analyses.length;
+    const latestReport = totalAnalyses > 0 ? this.parseAnalysisBreakdown(analyses[0]) : null;
+
     const avgAts =
       totalAnalyses > 0
-        ? Math.round(analyses.reduce((acc, a) => acc + (a.ats_score || 0), 0) / totalAnalyses)
+        ? Math.round(
+            analyses.reduce((acc, a) => {
+              const rep = this.parseAnalysisBreakdown(a);
+              return acc + (rep?.atsScore ?? a.ats_score ?? 0);
+            }, 0) / totalAnalyses,
+          )
         : null;
-    const topMatch = totalAnalyses > 0 ? Math.max(...analyses.map((a) => a.ats_score || 0)) : null;
 
+    const topMatch =
+      totalAnalyses > 0
+        ? Math.max(
+            ...analyses.map((a) => {
+              const rep = this.parseAnalysisBreakdown(a);
+              return (
+                rep?.jobMatch ??
+                (a as unknown as { match_score?: number }).match_score ??
+                a.ats_score ??
+                0
+              );
+            }),
+          )
+        : null;
+
+    const oldestReport =
+      totalAnalyses > 1 ? this.parseAnalysisBreakdown(analyses[analyses.length - 1]) : null;
     const diff =
       totalAnalyses > 1
-        ? (analyses[0]?.ats_score || 0) - (analyses[analyses.length - 1]?.ats_score || 0)
+        ? (latestReport?.atsScore ?? analyses[0]?.ats_score ?? 0) -
+          (oldestReport?.atsScore ?? analyses[analyses.length - 1]?.ats_score ?? 0)
         : 0;
+
+    const latestAts = latestReport?.atsScore ?? analyses[0]?.ats_score ?? null;
+    const latestMatch =
+      latestReport?.jobMatch ??
+      (analyses[0] as unknown as { match_score?: number })?.match_score ??
+      null;
 
     const dynamicStats = [
       {
         label: "ATS score",
-        value: totalAnalyses > 0 && analyses[0]?.ats_score ? `${analyses[0].ats_score}%` : "—",
+        value: latestAts !== null ? `${latestAts}%` : "—",
         change:
           totalAnalyses > 1
             ? `${diff >= 0 ? "+" : ""}${diff} pts`
@@ -585,10 +733,7 @@ export const resumeService = {
       },
       {
         label: "Job match",
-        value:
-          totalAnalyses > 0
-            ? `${analyses[0]?.ats_score ? Math.max(25, analyses[0].ats_score - 5) : 0}%`
-            : "—",
+        value: latestMatch !== null ? `${latestMatch}%` : "—",
         change: topMatch !== null ? `Best: ${topMatch}%` : "No job targets",
         up: true,
       },
@@ -606,15 +751,24 @@ export const resumeService = {
       },
     ];
 
-    const mappedAnalyses = analyses.map((a, i) => ({
-      id: a.id,
-      name: a.resume_name || "Software Engineer Resume",
-      role: a.resume_name ? `${a.resume_name}` : "General Role",
-      ats: a.ats_score ?? 85,
-      match: a.ats_score ? Math.max(70, a.ats_score - 4) : 80,
-      version: `v${analyses.length - i}.0`,
-      date: new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-    }));
+    const mappedAnalyses = analyses.map((a, i) => {
+      const report = this.parseAnalysisBreakdown(a);
+      const atsVal = report?.atsScore ?? a.ats_score ?? null;
+      const matchVal =
+        report?.jobMatch ?? (a as unknown as { match_score?: number }).match_score ?? null;
+      return {
+        id: a.id,
+        name: a.resume_name || "Software Engineer Resume",
+        role: a.resume_name ? `${a.resume_name}` : "General Role",
+        ats: atsVal,
+        match: matchVal,
+        version: `v${analyses.length - i}.0`,
+        date: new Date(a.created_at).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+      };
+    });
 
     return {
       stats: dynamicStats,

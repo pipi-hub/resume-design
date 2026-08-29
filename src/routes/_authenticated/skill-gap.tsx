@@ -50,9 +50,8 @@ function SkillGap() {
         const latest = await resumeService.getLatestAnalysis();
         if (latest) {
           if (latest.resume_name) setTargetRole(latest.resume_name);
-          const rep = (latest.breakdown ||
-            (latest as unknown as { report?: unknown }).report) as AnalysisResult | null;
-          if (rep && typeof rep === "object") {
+          const rep = resumeService.parseAnalysisBreakdown(latest);
+          if (rep) {
             setKeywordsHave(rep.keywordsHave || []);
             setKeywordsMissing(rep.keywordsMissing || []);
             setSkillGaps(rep.skillGaps || []);

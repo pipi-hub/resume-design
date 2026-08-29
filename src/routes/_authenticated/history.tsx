@@ -58,16 +58,22 @@ function HistoryPage() {
       ]);
 
       if (analyses.length > 0) {
-        return analyses.map((a) => ({
-          id: a.id,
-          title: a.resume_name || "Resume Analysis",
-          fileName: a.resume_name || "Resume.pdf",
-          format: "PDF",
-          atsScore: a.ats_score ? `${a.ats_score}%` : "—",
-          matchScore: a.ats_score ? `${Math.max(70, a.ats_score - 4)}%` : "—",
-          date: a.created_at,
-          linkId: a.id,
-        }));
+        return analyses.map((a) => {
+          const report = resumeService.parseAnalysisBreakdown(a);
+          const atsVal = report?.atsScore ?? a.ats_score ?? null;
+          const matchVal =
+            report?.jobMatch ?? (a as unknown as { match_score?: number }).match_score ?? null;
+          return {
+            id: a.id,
+            title: a.resume_name || "Resume Analysis",
+            fileName: a.resume_name || "Resume.pdf",
+            format: "PDF",
+            atsScore: atsVal !== null ? `${atsVal}%` : "—",
+            matchScore: matchVal !== null ? `${matchVal}%` : "—",
+            date: a.created_at,
+            linkId: a.id,
+          };
+        });
       }
 
       return resumes.map((r) => ({

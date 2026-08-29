@@ -84,20 +84,23 @@ function Analysis() {
   const [loading, setLoading] = useState(true);
   const [analysisTitle, setAnalysisTitle] = useState(career.targetRole || "Software Engineer");
   const [analysisCompany, setAnalysisCompany] = useState(career.company || "");
-  const [data, setData] = useState<AnalysisResult | null>(career.latestAnalysis);
+  const [data, setData] = useState<AnalysisResult | null>(
+    !search.id && career.latestAnalysis ? career.latestAnalysis : null,
+  );
   const [showScoreExplanation, setShowScoreExplanation] = useState(false);
 
   useEffect(() => {
+    let isCurrent = true;
     async function loadData() {
       setLoading(true);
       try {
         if (search.id) {
           const row = await resumeService.getAnalysisById(search.id);
+          if (!isCurrent) return;
           if (row) {
             if (row.resume_name) setAnalysisTitle(row.resume_name);
-            const reportData = (row.breakdown ||
-              (row as unknown as { report?: unknown }).report) as AnalysisResult | null;
-            if (reportData && typeof reportData === "object" && "atsScore" in reportData) {
+            const reportData = resumeService.parseAnalysisBreakdown(row);
+            if (reportData) {
               setData(reportData);
               career.setLatestAnalysis(reportData, search.id);
               setLoading(false);
@@ -108,11 +111,11 @@ function Analysis() {
 
         // Try getting from latest DB analysis or session storage
         const latest = await resumeService.getLatestAnalysis();
+        if (!isCurrent) return;
         if (latest) {
           if (latest.resume_name) setAnalysisTitle(latest.resume_name);
-          const reportData = (latest.breakdown ||
-            (latest as unknown as { report?: unknown }).report) as AnalysisResult | null;
-          if (reportData && typeof reportData === "object" && "atsScore" in reportData) {
+          const reportData = resumeService.parseAnalysisBreakdown(latest);
+          if (reportData) {
             setData(reportData);
             career.setLatestAnalysis(reportData, latest.id);
             setLoading(false);
@@ -121,7 +124,7 @@ function Analysis() {
         }
 
         const cached = sessionStorage.getItem("resumate_latest_analysis_data");
-        if (cached) {
+        if (cached && isCurrent) {
           const parsed = JSON.parse(cached) as AnalysisResult;
           setData(parsed);
           career.setLatestAnalysis(parsed);
@@ -129,11 +132,16 @@ function Analysis() {
       } catch (err) {
         console.warn("Could not load stored analysis:", err);
       } finally {
-        setLoading(false);
+        if (isCurrent) {
+          setLoading(false);
+        }
       }
     }
 
     void loadData();
+    return () => {
+      isCurrent = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.id]);
 

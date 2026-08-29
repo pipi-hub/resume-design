@@ -110,10 +110,13 @@ function CoverLetter() {
     try {
       const resumeText =
         career.activeResumeText || sessionStorage.getItem("resumate_active_resume_text") || "";
+      const jobDescription =
+        career.jobDescription || sessionStorage.getItem("resumate_active_job_desc") || "";
       const result = await resumeService.generateCoverLetter({
         resumeText,
         jobTitle: role,
         company,
+        jobDescription,
         tone,
         highlight,
         userId: userId || undefined,
