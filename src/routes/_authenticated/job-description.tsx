@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { ArrowRight, FileText, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/common/PageHeader";
 import { resumeService } from "@/services/resumeService";
+import { useCareerContext } from "@/context/app-context";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/job-description")({
@@ -32,12 +33,19 @@ export const Route = createFileRoute("/_authenticated/job-description")({
 
 function JobDescription() {
   const navigate = useNavigate();
+  const career = useCareerContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [jobTitle, setJobTitle] = useState("Software Engineer");
-  const [company, setCompany] = useState("Northwind Labs");
-  const [jd, setJd] = useState("");
+  const [jobTitle, setJobTitle] = useState(career.targetRole || "Software Engineer");
+  const [company, setCompany] = useState(career.company || "Northwind Labs");
+  const [jd, setJd] = useState(career.jobDescription || "");
   const [error, setError] = useState("");
   const [extracting, setExtracting] = useState(false);
+
+  useEffect(() => {
+    if (career.targetRole) setJobTitle(career.targetRole);
+    if (career.company) setCompany(career.company);
+    if (career.jobDescription) setJd(career.jobDescription);
+  }, [career.targetRole, career.company, career.jobDescription]);
 
   const ready = jd.trim().length >= 30;
 
@@ -60,6 +68,8 @@ function JobDescription() {
       setError("Please paste or upload the job description (at least 30 characters).");
       return;
     }
+
+    career.setTargetJob(jobTitle, company, jd);
 
     try {
       sessionStorage.setItem("resumate_job_title", jobTitle);

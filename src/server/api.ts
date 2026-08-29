@@ -3,6 +3,7 @@ import {
   improveBulletWithGemini,
   generateCoverLetterWithGemini,
   generateInterviewQuestionsWithGemini,
+  evaluateInterviewAnswerWithGemini,
   aiChatWithGemini,
 } from "./gemini";
 import { extractTextFromFile } from "./extract";
@@ -109,7 +110,11 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
       const res = await improveBulletWithGemini({ bullet, targetRole, context });
       return new Response(
         JSON.stringify({
-          result: res.result,
+          result: res.improvedBullet || res.result,
+          improvedBullet: res.improvedBullet || res.result,
+          optionalEnhancement: res.optionalEnhancement,
+          isAlreadyStrong: res.isAlreadyStrong,
+          statusNote: res.statusNote,
           provider: res.provider,
           modelUsed: res.modelUsed,
           attempts: res.attempts,
@@ -154,16 +159,58 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
 
     if (path === "/api/generate-interview-prep" && request.method === "POST") {
-      const body = await request.json();
+      const body = await request.json().catch(() => ({}));
       const { resumeText, jobDescription, targetRole } = body;
 
+      if (!resumeText || typeof resumeText !== "string" || !resumeText.trim()) {
+        return new Response(
+          JSON.stringify({
+            error: "Please select or upload a resume before generating interview questions.",
+          }),
+          {
+            status: 400,
+            headers: corsHeaders,
+          },
+        );
+      }
+
       const questions = await generateInterviewQuestionsWithGemini({
-        resumeText: resumeText || "",
-        jobDescription,
-        targetRole,
+        resumeText: resumeText.trim(),
+        jobDescription: typeof jobDescription === "string" ? jobDescription : undefined,
+        targetRole: typeof targetRole === "string" ? targetRole : undefined,
       });
 
       return new Response(JSON.stringify(questions), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    if (path === "/api/evaluate-interview-answer" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { question, answer, category, targetRole, resumeText } = body;
+
+      if (!question || !answer || typeof answer !== "string" || !answer.trim()) {
+        return new Response(
+          JSON.stringify({
+            error: "Both question and a non-empty answer are required for evaluation.",
+          }),
+          {
+            status: 400,
+            headers: corsHeaders,
+          },
+        );
+      }
+
+      const evaluation = await evaluateInterviewAnswerWithGemini({
+        question: String(question),
+        answer: String(answer).trim(),
+        category: category ? String(category) : undefined,
+        targetRole: targetRole ? String(targetRole) : undefined,
+        resumeText: resumeText ? String(resumeText) : undefined,
+      });
+
+      return new Response(JSON.stringify(evaluation), {
         status: 200,
         headers: corsHeaders,
       });

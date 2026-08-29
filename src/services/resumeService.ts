@@ -12,6 +12,15 @@ export type ProfileRow = Tables<"profiles">;
 export type CoverLetterRow = Tables<"cover_letters">;
 export type BuilderRow = Tables<"resumes_builder">;
 
+export type ImproveBulletResponse = {
+  result: string;
+  improvedBullet: string;
+  optionalEnhancement?: string;
+  isAlreadyStrong?: boolean;
+  statusNote?: string;
+  provider?: string;
+};
+
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_EXTENSIONS = ["pdf", "docx", "txt", "md"];
 
@@ -51,12 +60,19 @@ export const resumeService = {
       console.warn("Server text extraction failed, trying client fallback:", err);
     }
 
-    // Fallback: simple text decoding if plain text
-    try {
-      return await file.text();
-    } catch {
-      return `Resume: ${file.name}`;
+    // Fallback: plain text / markdown decoding
+    if (file.type === "text/plain" || file.name.endsWith(".txt") || file.name.endsWith(".md")) {
+      try {
+        const txt = await file.text();
+        if (txt.trim()) return txt.trim();
+      } catch {
+        // Continue to error
+      }
     }
+
+    throw new Error(
+      `Could not extract text from "${file.name}". Please upload a standard PDF, DOCX, or text file.`,
+    );
   },
 
   /**
@@ -267,13 +283,13 @@ export const resumeService = {
   },
 
   /**
-   * Rewrites a resume bullet point using Gemini AI.
+   * Rewrites a resume bullet point using Gemini AI with strict anti-hallucination validation.
    */
   async improveBullet(
     bullet: string,
     targetRole?: string | undefined,
     context?: string | undefined,
-  ): Promise<string> {
+  ): Promise<ImproveBulletResponse> {
     if (!bullet.trim()) throw new Error("Please write a bullet point first.");
 
     const response = await fetch("/api/improve-bullet", {
@@ -288,7 +304,15 @@ export const resumeService = {
     }
 
     const data = await response.json();
-    return data.result || bullet;
+    const finalBullet = data.improvedBullet || data.result || bullet;
+    return {
+      result: finalBullet,
+      improvedBullet: finalBullet,
+      optionalEnhancement: data.optionalEnhancement,
+      isAlreadyStrong: data.isAlreadyStrong,
+      statusNote: data.statusNote,
+      provider: data.provider,
+    };
   },
 
   /**
@@ -409,6 +433,43 @@ export const resumeService = {
   },
 
   /**
+   * Evaluates a candidate's mock interview answer using AI and generates realistic follow-up questions.
+   */
+  async evaluateInterviewAnswer(params: {
+    question: string;
+    answer: string;
+    category?: string;
+    targetRole?: string;
+    resumeText?: string;
+  }): Promise<{
+    score: number;
+    rating: "Excellent" | "Strong" | "Adequate" | "Needs Improvement";
+    strengths: string[];
+    improvements: string[];
+    starEvaluation: {
+      situation: string;
+      task: string;
+      action: string;
+      result: string;
+    };
+    followUpQuestion: string;
+    coachingAdvice: string;
+  }> {
+    const response = await fetch("/api/evaluate-interview-answer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `Answer evaluation failed: ${response.statusText}`);
+    }
+
+    return await response.json();
+  },
+
+  /**
    * Sends a message to ResuMate AI chat assistant.
    */
   async sendAiChatMessage(params: {
@@ -419,6 +480,11 @@ export const resumeService = {
           resumeText?: string | undefined;
           targetRole?: string | undefined;
           atsScore?: number | undefined;
+          jobDescription?: string | undefined;
+          company?: string | undefined;
+          requirementMatches?: unknown[] | undefined;
+          skillGaps?: unknown[] | undefined;
+          analysis?: unknown | undefined;
         }
       | undefined;
   }): Promise<string> {
@@ -497,35 +563,45 @@ export const resumeService = {
     const avgAts =
       totalAnalyses > 0
         ? Math.round(analyses.reduce((acc, a) => acc + (a.ats_score || 0), 0) / totalAnalyses)
-        : 85;
-    const topMatch = totalAnalyses > 0 ? Math.max(...analyses.map((a) => a.ats_score || 80)) : 82;
+        : null;
+    const topMatch = totalAnalyses > 0 ? Math.max(...analyses.map((a) => a.ats_score || 0)) : null;
+
+    const diff =
+      totalAnalyses > 1
+        ? (analyses[0]?.ats_score || 0) - (analyses[analyses.length - 1]?.ats_score || 0)
+        : 0;
 
     const dynamicStats = [
       {
         label: "ATS score",
-        value: totalAnalyses > 0 ? `${analyses[0]?.ats_score ?? 87}%` : "—",
+        value: totalAnalyses > 0 && analyses[0]?.ats_score ? `${analyses[0].ats_score}%` : "—",
         change:
           totalAnalyses > 1
-            ? `+${(analyses[0]?.ats_score || 0) - (analyses[analyses.length - 1]?.ats_score || 0)} pts`
-            : "+12 pts",
-        up: true,
+            ? `${diff >= 0 ? "+" : ""}${diff} pts`
+            : totalAnalyses === 1
+              ? "First analysis"
+              : "No analyses yet",
+        up: diff >= 0,
       },
       {
         label: "Job match",
-        value: totalAnalyses > 0 ? `${analyses[0]?.ats_score ?? 82}%` : "—",
-        change: "Top: " + (topMatch ? `${topMatch}%` : "88%"),
+        value:
+          totalAnalyses > 0
+            ? `${analyses[0]?.ats_score ? Math.max(25, analyses[0].ats_score - 5) : 0}%`
+            : "—",
+        change: topMatch !== null ? `Best: ${topMatch}%` : "No job targets",
         up: true,
       },
       {
         label: "Resumes tracked",
-        value: String(resumes.length || (totalAnalyses > 0 ? totalAnalyses : 1)),
-        change: `${totalAnalyses} analysed`,
+        value: String(resumes.length),
+        change: `${resumes.length} uploaded`,
         up: true,
       },
       {
         label: "Skill coverage",
-        value: totalAnalyses > 0 ? `${Math.min(95, Math.round(avgAts * 0.92))}%` : "80%",
-        change: "Target role matched",
+        value: avgAts !== null ? `${Math.min(98, Math.round(avgAts * 0.9))}%` : "—",
+        change: totalAnalyses > 0 ? "Based on analysis" : "Upload resume to calculate",
         up: true,
       },
     ];

@@ -59,12 +59,12 @@ function Dashboard() {
   const firstName =
     data?.profile?.full_name?.split(" ")[0] ||
     user?.user_metadata?.["full_name"]?.split(" ")[0] ||
-    defaultUser.firstName;
+    "there";
   const stats = data?.stats || [
-    { label: "ATS score", value: "87%", change: "+12 pts", up: true },
-    { label: "Job match", value: "82%", change: "+8 pts", up: true },
-    { label: "Resumes tracked", value: "3", change: "2 this week", up: true },
-    { label: "Skill coverage", value: "78%", change: "+5 skills", up: true },
+    { label: "ATS score", value: "—", change: "Upload a resume to begin", up: true },
+    { label: "Job match", value: "—", change: "Set a target job", up: true },
+    { label: "Resumes tracked", value: "0", change: "0 uploaded", up: true },
+    { label: "Skill coverage", value: "—", change: "No data", up: true },
   ];
   const recent = data?.recentAnalyses || [];
 

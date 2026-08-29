@@ -10,15 +10,19 @@ export async function ensureProfile(
   const { data: existing } = await supabase
     .from("profiles")
     .select("id")
-    .eq("id", user.id)
+    .eq("user_id", user.id)
     .maybeSingle();
   if (existing) return;
   await supabase.from("profiles").insert({
-    id: user.id,
-    email: user.email ?? null,
+    user_id: user.id,
     full_name: extra?.fullName ?? (user.user_metadata?.["full_name"] as string | undefined) ?? "",
-    career_level: extra?.careerLevel ?? null,
-    target_role: extra?.targetRole ?? null,
+    experience_level:
+      extra?.careerLevel ??
+      (user.user_metadata?.["career_level"] as string | undefined) ??
+      (user.user_metadata?.["experience_level"] as string | undefined) ??
+      null,
+    target_role:
+      extra?.targetRole ?? (user.user_metadata?.["target_role"] as string | undefined) ?? null,
   });
 }
 

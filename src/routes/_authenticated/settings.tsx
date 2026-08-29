@@ -94,9 +94,6 @@ function Settings() {
     try {
       const { error } = await supabase.auth.updateUser({ email });
       if (error) throw error;
-      if (userId) {
-        await supabase.from("profiles").update({ email }).eq("id", userId);
-      }
       toast.success("Confirmation email sent to update your address ✓");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to update email.");

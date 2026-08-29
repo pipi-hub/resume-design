@@ -30,6 +30,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { EmptyState } from "@/components/common/EmptyState";
 import { useAuthUser } from "@/lib/auth";
 import { CoverLetterRow, resumeService } from "@/services/resumeService";
+import { useCareerContext } from "@/context/app-context";
 
 export const Route = createFileRoute("/_authenticated/cover-letter")({
   head: () => ({
@@ -51,8 +52,9 @@ export const Route = createFileRoute("/_authenticated/cover-letter")({
 
 function CoverLetter() {
   const { userId } = useAuthUser();
-  const [role, setRole] = useState("Software Engineer");
-  const [company, setCompany] = useState("Northwind Labs");
+  const career = useCareerContext();
+  const [role, setRole] = useState(career.targetRole || "Software Engineer");
+  const [company, setCompany] = useState(career.company || "Northwind Labs");
   const [tone, setTone] = useState("Professional");
   const [highlight, setHighlight] = useState("");
   const [letter, setLetter] = useState("");
@@ -92,13 +94,11 @@ function CoverLetter() {
     void loadSaved();
   }, [userId]);
 
-  // Load active resume title or role if in sessionStorage
+  // Sync with career context if present
   useEffect(() => {
-    const savedRole = sessionStorage.getItem("resumate_job_title");
-    const savedCompany = sessionStorage.getItem("resumate_company");
-    if (savedRole) setRole(savedRole);
-    if (savedCompany) setCompany(savedCompany);
-  }, []);
+    if (career.targetRole) setRole(career.targetRole);
+    if (career.company) setCompany(career.company);
+  }, [career.targetRole, career.company]);
 
   async function generate() {
     if (!role.trim() || !company.trim()) {
@@ -108,7 +108,8 @@ function CoverLetter() {
 
     setLoading(true);
     try {
-      const resumeText = sessionStorage.getItem("resumate_active_resume_text") || "";
+      const resumeText =
+        career.activeResumeText || sessionStorage.getItem("resumate_active_resume_text") || "";
       const result = await resumeService.generateCoverLetter({
         resumeText,
         jobTitle: role,

@@ -9,6 +9,7 @@ import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/common/PageHeader";
 import { useAuthUser } from "@/lib/auth";
 import { resumeService, type ResumeRow } from "@/services/resumeService";
+import { useCareerContext } from "@/context/app-context";
 
 export const Route = createFileRoute("/_authenticated/analyze")({
   head: () => ({
@@ -30,6 +31,7 @@ const ok = ["pdf", "docx"];
 function Analyze() {
   const inputRef = useRef<HTMLInputElement>(null);
   const { userId } = useAuthUser();
+  const career = useCareerContext();
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -55,7 +57,9 @@ function Analyze() {
     setUploading(true);
     try {
       const row = await resumeService.uploadResume(f, userId);
+      const resName = row.name || (row as unknown as { file_name?: string }).file_name || f.name;
       setResume({ ...row, size: `${(f.size / 1024 / 1024).toFixed(2)} MB` });
+      career.setActiveResume(row.id, resName, row.extracted_text || "");
       toast.success("Resume uploaded successfully ✓");
     } catch (e) {
       setResume(null);
@@ -72,6 +76,7 @@ function Analyze() {
     try {
       await resumeService.deleteResume(resume.id, resume.file_path);
       setResume(null);
+      career.setActiveResume(null, "My Resume", "");
       toast.success("Resume deleted");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not delete the resume.");

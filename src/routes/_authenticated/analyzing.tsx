@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AppShell } from "@/components/app/AppShell";
 import { useAuthUser } from "@/lib/auth";
 import { resumeService } from "@/services/resumeService";
+import { useCareerContext } from "@/context/app-context";
 
 export const Route = createFileRoute("/_authenticated/analyzing")({
   head: () => ({
@@ -35,6 +36,7 @@ const stages = [
 function Analyzing() {
   const navigate = useNavigate();
   const { userId } = useAuthUser();
+  const career = useCareerContext();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const hasTriggered = useRef(false);
@@ -48,11 +50,16 @@ function Analyzing() {
     }, 1200);
 
     try {
-      const resumeId = sessionStorage.getItem("resumate_active_resume_id") || undefined;
-      let resumeText = sessionStorage.getItem("resumate_active_resume_text") || "";
-      const jobTitle = sessionStorage.getItem("resumate_job_title") || "Software Engineer";
-      const company = sessionStorage.getItem("resumate_company") || "Northwind Labs";
+      const resumeId =
+        career.activeResumeId || sessionStorage.getItem("resumate_active_resume_id") || undefined;
+      let resumeText =
+        career.activeResumeText || sessionStorage.getItem("resumate_active_resume_text") || "";
+      const jobTitle =
+        career.targetRole || sessionStorage.getItem("resumate_job_title") || "Software Engineer";
+      const company =
+        career.company || sessionStorage.getItem("resumate_company") || "Northwind Labs";
       const jobDescription =
+        career.jobDescription ||
         sessionStorage.getItem("resumate_job_description") ||
         "Software engineering position requiring React, TypeScript, Node.js, REST APIs, and database fundamentals.";
 
@@ -60,6 +67,13 @@ function Analyzing() {
         const resumeRow = await resumeService.getResumeById(resumeId);
         if (resumeRow?.extracted_text) {
           resumeText = resumeRow.extracted_text;
+          career.setActiveResume(
+            resumeId,
+            resumeRow.name ||
+              (resumeRow as unknown as { file_name?: string }).file_name ||
+              "Resume",
+            resumeText,
+          );
         }
       }
 
@@ -68,39 +82,21 @@ function Analyzing() {
         const userResumes = await resumeService.listResumes();
         if (userResumes.length > 0 && userResumes[0]?.extracted_text) {
           resumeText = userResumes[0].extracted_text;
+          career.setActiveResume(
+            userResumes[0].id,
+            userResumes[0].name ||
+              (userResumes[0] as unknown as { file_name?: string }).file_name ||
+              "Resume",
+            resumeText,
+          );
         } else {
-          // Default sample resume text if user jumped directly to analysis
-          resumeText = `
-Name: Candidate
-Email: candidate@example.com | Location: New York, NY
-Target Role: Software Engineer
-
-Summary:
-Computer Science graduate with experience building modern web applications with React, TypeScript, and Node.js.
-
-Education:
-B.S. in Computer Science (2022 - 2026)
-Relevant Coursework: Data Structures, Algorithms, Web Engineering, Database Systems.
-
-Experience & Internships:
-Software Development Intern (Jun 2025 - Aug 2025)
-- Developed responsive user interfaces using React and Tailwind CSS.
-- Built RESTful API endpoints in Node.js and Express to handle data synchronization.
-- Resolved 25+ frontend issues and improved test coverage by 15%.
-
-Projects:
-ResuMate - AI Career Platform (React, TypeScript, Supabase, Tailwind CSS)
-- Architected full-stack resume analysis application with automated scoring.
-- Implemented real-time markdown and PDF generation.
-
-Skills:
-Languages: TypeScript, JavaScript, Python, SQL, HTML, CSS
-Frameworks & Tools: React, Node.js, Express, Git, REST APIs, PostgreSQL
-          `;
+          clearInterval(stepInterval);
+          setError("No resume content found. Please upload or select a resume first.");
+          return;
         }
       }
 
-      const { analysisId } = await resumeService.analyzeResume({
+      const { analysisId, result } = await resumeService.analyzeResume({
         resumeId,
         resumeText,
         jobDescription,
@@ -108,6 +104,10 @@ Frameworks & Tools: React, Node.js, Express, Git, REST APIs, PostgreSQL
         company,
         userId: userId || "anonymous",
       });
+
+      if (result) {
+        career.setLatestAnalysis(result, analysisId);
+      }
 
       clearInterval(stepInterval);
       setStep(stages.length);

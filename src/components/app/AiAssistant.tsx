@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { resumeService } from "@/services/resumeService";
 import { useAuthUser } from "@/lib/auth";
+import { useCareerContext } from "@/context/app-context";
 
 type Msg = { role: "user" | "ai"; text: string };
 
@@ -17,6 +18,7 @@ const starters = [
 
 export function AiAssistant() {
   const { user } = useAuthUser();
+  const career = useCareerContext();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,6 +30,14 @@ export function AiAssistant() {
       text: `Hi ${user?.user_metadata?.["full_name"]?.split(" ")[0] || "there"}! I'm ResuMate AI, your dedicated career and resume mentor. Ask me how to improve your bullet points, raise your ATS score, prepare for interviews, or tailor your applications!`,
     },
   ]);
+
+  useEffect(() => {
+    function handleOpen() {
+      setOpen(true);
+    }
+    window.addEventListener("open-ai-assistant", handleOpen);
+    return () => window.removeEventListener("open-ai-assistant", handleOpen);
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -47,15 +57,20 @@ export function AiAssistant() {
 
     try {
       const resumeText =
+        career.activeResumeText ||
         sessionStorage.getItem("resumate_active_resume_text") ||
         sessionStorage.getItem("resumate_resume_text") ||
         undefined;
       const targetRole =
+        career.targetRole ||
         sessionStorage.getItem("resumate_job_title") ||
         sessionStorage.getItem("resumate_target_role") ||
         "Software Engineer";
-      const scoreRaw = sessionStorage.getItem("resumate_ats_score");
-      const atsScore = scoreRaw ? Number(scoreRaw) : undefined;
+      const atsScore =
+        career.latestAnalysis?.atsCompatibilityScore ??
+        (sessionStorage.getItem("resumate_ats_score")
+          ? Number(sessionStorage.getItem("resumate_ats_score"))
+          : undefined);
 
       const reply = await resumeService.sendAiChatMessage({
         message: q,
@@ -64,16 +79,21 @@ export function AiAssistant() {
           resumeText,
           targetRole,
           atsScore,
+          jobDescription: career.jobDescription,
+          company: career.company,
+          requirementMatches: career.latestAnalysis?.requirementMatches,
+          skillGaps: career.latestAnalysis?.skillGaps,
+          analysis: career.latestAnalysis || undefined,
         },
       });
 
       setMessages((prev) => [...prev, { role: "ai", text: reply }]);
-    } catch {
+    } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           role: "ai",
-          text: "Focus on adding high-demand technical keywords from your target job description, using strong action verbs (e.g., 'Architected', 'Deployed'), and quantifying your achievements (e.g., 'improved performance by 25%').",
+          text: "I'm having trouble processing that request right now. Please check your connection or try asking again.",
         },
       ]);
     } finally {

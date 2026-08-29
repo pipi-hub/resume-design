@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CheckCircle2, GitCompareArrows, Loader2, Target } from "lucide-react";
+import { CheckCircle2, FileSearch, GitCompareArrows, Loader2, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,11 +10,6 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { InfoHint } from "@/components/common/InfoHint";
 import { resumeService } from "@/services/resumeService";
 import type { AnalysisResult } from "@/server/gemini";
-import {
-  keywordsHave as defaultKeywordsHave,
-  keywordsMissing as defaultKeywordsMissing,
-  skillGaps as defaultSkillGaps,
-} from "@/lib/mock-data";
 
 export const Route = createFileRoute("/_authenticated/skill-gap")({
   head: () => ({
@@ -44,21 +39,24 @@ const importanceVariant: Record<string, "destructive" | "secondary" | "outline">
 function SkillGap() {
   const [loading, setLoading] = useState(true);
   const [targetRole, setTargetRole] = useState("Software Engineer");
-  const [keywordsHave, setKeywordsHave] = useState<string[]>(defaultKeywordsHave);
-  const [keywordsMissing, setKeywordsMissing] = useState<string[]>(defaultKeywordsMissing);
-  const [skillGaps, setSkillGaps] = useState<AnalysisResult["skillGaps"]>(defaultSkillGaps);
+  const [keywordsHave, setKeywordsHave] = useState<string[]>([]);
+  const [keywordsMissing, setKeywordsMissing] = useState<string[]>([]);
+  const [skillGaps, setSkillGaps] = useState<AnalysisResult["skillGaps"]>([]);
+  const [hasAnalysis, setHasAnalysis] = useState(false);
 
   useEffect(() => {
     async function loadGaps() {
       try {
         const latest = await resumeService.getLatestAnalysis();
         if (latest) {
-          if (latest.job_title) setTargetRole(latest.job_title);
-          if (latest.report && typeof latest.report === "object") {
-            const rep = latest.report as unknown as AnalysisResult;
-            if (rep.keywordsHave?.length) setKeywordsHave(rep.keywordsHave);
-            if (rep.keywordsMissing?.length) setKeywordsMissing(rep.keywordsMissing);
-            if (rep.skillGaps?.length) setSkillGaps(rep.skillGaps);
+          if (latest.resume_name) setTargetRole(latest.resume_name);
+          const rep = (latest.breakdown ||
+            (latest as unknown as { report?: unknown }).report) as AnalysisResult | null;
+          if (rep && typeof rep === "object") {
+            setKeywordsHave(rep.keywordsHave || []);
+            setKeywordsMissing(rep.keywordsMissing || []);
+            setSkillGaps(rep.skillGaps || []);
+            setHasAnalysis(true);
             setLoading(false);
             return;
           }
@@ -67,9 +65,10 @@ function SkillGap() {
         const cached = sessionStorage.getItem("resumate_latest_analysis_data");
         if (cached) {
           const parsed = JSON.parse(cached) as AnalysisResult;
-          if (parsed.keywordsHave?.length) setKeywordsHave(parsed.keywordsHave);
-          if (parsed.keywordsMissing?.length) setKeywordsMissing(parsed.keywordsMissing);
-          if (parsed.skillGaps?.length) setSkillGaps(parsed.skillGaps);
+          setKeywordsHave(parsed.keywordsHave || []);
+          setKeywordsMissing(parsed.keywordsMissing || []);
+          setSkillGaps(parsed.skillGaps || []);
+          setHasAnalysis(true);
         }
       } catch (err) {
         console.warn("Could not load skill gap data:", err);
@@ -82,13 +81,31 @@ function SkillGap() {
   }, []);
 
   const total = keywordsHave.length + keywordsMissing.length;
-  const coverage = total > 0 ? Math.round((keywordsHave.length / total) * 100) : 75;
+  const coverage = total > 0 ? Math.round((keywordsHave.length / total) * 100) : 0;
 
   if (loading) {
     return (
       <AppShell>
         <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="size-5 animate-spin text-primary" /> Loading skill gap analysis…
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (!hasAnalysis || (keywordsHave.length === 0 && keywordsMissing.length === 0)) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[50vh] flex-col items-center justify-center space-y-4 text-center">
+          <FileSearch className="size-12 text-muted-foreground" />
+          <h2 className="font-display text-xl font-semibold">No Skill Gap Data Found</h2>
+          <p className="max-w-md text-sm text-muted-foreground">
+            Upload and analyze your resume against a target job to compare your skills and receive a
+            personalized learning roadmap.
+          </p>
+          <Button variant="hero" asChild>
+            <Link to="/analyze">Analyze a Resume</Link>
+          </Button>
         </div>
       </AppShell>
     );
@@ -119,58 +136,72 @@ function SkillGap() {
               <p className="mt-2 font-display text-4xl font-bold">{coverage}%</p>
               <Progress value={coverage} className="mt-3 h-2" />
               <p className="mt-3 text-sm text-muted-foreground">
-                You already match {keywordsHave.length} of {total} important skills. Closing the{" "}
-                {keywordsMissing.length} gaps below is the fastest way to raise your match score.
+                You demonstrated {keywordsHave.length} of {total} important skills. Closing the{" "}
+                {keywordsMissing.length} target gaps below will raise your match score.
               </p>
             </CardContent>
           </Card>
 
           <Card className="shadow-card lg:col-span-2">
             <CardContent className="p-6">
-              <h2 className="font-display text-lg font-semibold">Skills you already have</h2>
+              <h2 className="font-display text-lg font-semibold">Demonstrated Skills</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {keywordsHave.map((k) => (
-                  <Badge key={k} variant="secondary" className="gap-1">
-                    <CheckCircle2 className="size-3.5 text-success" /> {k}
-                  </Badge>
-                ))}
+                {keywordsHave.length > 0 ? (
+                  keywordsHave.map((k) => (
+                    <Badge key={k} variant="secondary" className="gap-1">
+                      <CheckCircle2 className="size-3.5 text-success" /> {k}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No matching skills identified.</p>
+                )}
               </div>
-              <h2 className="mt-6 font-display text-lg font-semibold">Skills the job asks for</h2>
+              <h2 className="mt-6 font-display text-lg font-semibold">Missing Target Skills</h2>
               <div className="mt-3 flex flex-wrap gap-2">
-                {keywordsMissing.map((k) => (
-                  <Badge key={k} variant="outline" className="border-dashed">
-                    {k}
-                  </Badge>
-                ))}
+                {keywordsMissing.length > 0 ? (
+                  keywordsMissing.map((k) => (
+                    <Badge key={k} variant="outline" className="border-dashed">
+                      {k}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    All core target skills are present in your resume.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <section aria-labelledby="plan">
-          <div className="flex items-center gap-2">
-            <GitCompareArrows className="size-5 text-primary" />
-            <h2 id="plan" className="font-display text-lg font-semibold">
-              Your personalized learning plan
-            </h2>
-          </div>
-          <div className="mt-3 grid gap-4 md:grid-cols-2">
-            {skillGaps.map((g) => (
-              <Card key={g.skill} className="shadow-card">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="font-display font-semibold">{g.skill}</p>
-                    <Badge variant={importanceVariant[g.importance] ?? "secondary"}>
-                      {g.importance} priority
-                    </Badge>
-                  </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{g.rec}</p>
-                  <p className="mt-3 text-xs font-medium text-primary">Estimated time: {g.weeks}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
+        {skillGaps.length > 0 && (
+          <section aria-labelledby="plan">
+            <div className="flex items-center gap-2">
+              <GitCompareArrows className="size-5 text-primary" />
+              <h2 id="plan" className="font-display text-lg font-semibold">
+                Your personalized learning plan
+              </h2>
+            </div>
+            <div className="mt-3 grid gap-4 md:grid-cols-2">
+              {skillGaps.map((g) => (
+                <Card key={g.skill} className="shadow-card">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-display font-semibold">{g.skill}</p>
+                      <Badge variant={importanceVariant[g.importance] ?? "secondary"}>
+                        {g.importance} priority
+                      </Badge>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{g.rec}</p>
+                    <p className="mt-3 text-xs font-medium text-primary">
+                      Estimated time: {g.weeks}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
 
         <div className="rounded-2xl border gradient-soft p-6">
           <p className="font-display font-semibold">Ready to show your progress?</p>

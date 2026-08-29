@@ -99,6 +99,15 @@ function Register() {
                   );
                   return;
                 }
+                // Supabase returns an empty identities array if user already exists (user enumeration protection)
+                if (
+                  result.user &&
+                  Array.isArray(result.user.identities) &&
+                  result.user.identities.length === 0
+                ) {
+                  setError("That email already has an account — try logging in.");
+                  return;
+                }
                 if (result.session && result.user) {
                   await ensureProfile(result.user, { fullName, careerLevel: career, targetRole });
                   toast.success("Account created ✓", {

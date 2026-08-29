@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/common/Logo";
 import { InfoHint } from "@/components/common/InfoHint";
 import { AiAssistant } from "./AiAssistant";
-import { useApp } from "@/context/app-context";
+import { useApp, useCareerContext } from "@/context/app-context";
 import { useAuthUser } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -110,12 +110,14 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 function SidebarFooter() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const career = useCareerContext();
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
     try {
+      career.clearActiveContext();
       await queryClient.cancelQueries();
       queryClient.clear();
       const { error } = await supabase.auth.signOut();
@@ -128,9 +130,13 @@ function SidebarFooter() {
     }
   }
 
+  function handleOpenAiAssistant() {
+    window.dispatchEvent(new CustomEvent("open-ai-assistant"));
+  }
+
   return (
     <div className="space-y-2 border-t p-3">
-      <Button variant="soft" className="w-full justify-start gap-3">
+      <Button variant="soft" className="w-full justify-start gap-3" onClick={handleOpenAiAssistant}>
         <Briefcase className="size-4" /> Ask ResuMate AI
       </Button>
       <Button
