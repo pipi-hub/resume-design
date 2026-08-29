@@ -1388,8 +1388,8 @@ function buildGroundedInterviewQuestionsFromResume(params: {
 
   if (companyName) {
     projectQuestions.push({
-      q: `During your experience at ${companyName}, how did you collaborate with senior engineers during code reviews and sprint planning?`,
-      hint: "Highlight proactive communication, incorporating review feedback, debugging assistance, and agile ceremonies.",
+      q: `During your experience at ${companyName}, can you describe a specific feature or task you worked on and how you coordinated with teammates to deliver it?`,
+      hint: "Highlight your individual technical contributions, team communication, and how you verified your work.",
     });
   }
 
@@ -1402,22 +1402,22 @@ function buildGroundedInterviewQuestionsFromResume(params: {
 
   const behavioralQuestions: Array<{ q: string; hint: string }> = [
     {
-      q: "Tell me about a difficult bug or unexpected error you encountered while building a project. How did you isolate and resolve it?",
-      hint: "Use STAR: Detail the specific error, your debugging methodology (logging, breakpoints), and the long-term fix.",
+      q: "Describe a technical challenge or unexpected bug you encountered while working on one of your projects. How did you identify the problem and work toward a solution?",
+      hint: "Use STAR: Detail the specific challenge, your debugging methodology (logging, test cases), and the verified fix.",
     },
     {
-      q: "Describe a situation where project requirements or deadlines were tight. How did you prioritize features to deliver on time?",
-      hint: "Demonstrate structured task breakdown, identifying critical path dependencies, and transparent stakeholder communication.",
+      q: "Suppose you encounter tight deadlines or shifting project requirements. How do you prioritize tasks to deliver on time?",
+      hint: "Demonstrate structured task breakdown, identifying critical path dependencies, and transparent communication.",
     },
     {
-      q: "Give an example of receiving critical feedback on your code or design. How did you process it and improve the final outcome?",
-      hint: "Emphasize emotional maturity, open-minded collaboration, technical justification, and continuous code quality improvement.",
+      q: "Suppose you disagree with a teammate about an implementation approach or receive critical feedback on code. How would you handle the situation?",
+      hint: "Emphasize emotional maturity, open-minded collaboration, technical justification, and constructive problem-solving.",
     },
   ];
 
   const hrQuestions: Array<{ q: string; hint: string }> = [
     {
-      q: `What motivates you to pursue a ${role} role, and how does your background in ${detectedSkills.slice(0, 3).join(", ") || "software engineering"} prepare you for it?`,
+      q: `What motivates you to pursue the ${role} role, and how does your background in ${detectedSkills.slice(0, 3).join(", ") || "software engineering"} prepare you for it?`,
       hint: "Connect your specific project achievements and technical passions to the core responsibilities of this role.",
     },
     {
@@ -1463,12 +1463,34 @@ ${cleanResume}
 
 ${params.jobDescription ? `Target Job Description / Role Requirements:\n"""\n${params.jobDescription}\n"""` : `Target Role: ${params.targetRole || "Software Engineer"}`}
 
-CRITICAL GROUNDING & ANTI-HALLUCINATION RULES:
-1. STRICT RESUME FIDELITY: All Technical and "Resume & Projects" questions MUST strictly refer ONLY to the programming languages, databases, libraries, tools, projects, education, and internship/work experiences explicitly written in the candidate's resume above.
-2. ABSOLUTELY NO INVENTED TECHNOLOGIES: DO NOT assume or ask about unlisted frameworks or tools (e.g., do NOT mention AWS, Docker, Kubernetes, React, Angular, Vue, Spring Boot, MongoDB, Redis, GraphQL, etc. unless they explicitly appear in the resume or target job description).
-3. TARGETED PROJECT QUESTIONS: Ask directly about the specific projects named in their resume (e.g., data pipeline, architecture decisions, database queries, challenges faced).
-4. INTERNSHIP & EXPERIENCE: If the resume lists work or internship experience (e.g., company name, team tasks), formulate questions directly about their contributions, team code reviews, and debugging efforts there.
-5. BEHAVIORAL & HR: Use the STAR methodology (Situation, Task, Action, Result) focused on realistic situations relevant to their actual background.
+============================================================
+CRITICAL GROUNDING & ANTI-HALLUCINATION RULES (MANDATORY):
+============================================================
+
+1. STRICT RESUME FIDELITY:
+   - Technical, Resume, and Project questions MUST strictly refer ONLY to the programming languages, databases, libraries, tools, projects, education, and internship/work experiences explicitly written in the candidate's resume above.
+   - NEVER assume or ask about unlisted frameworks or tools (e.g., do NOT mention AWS, Docker, Kubernetes, React, Angular, Vue, Spring Boot, MongoDB, Redis, GraphQL, etc. unless they explicitly appear in the resume or target job description).
+
+2. NO UNFOUNDED ASSUMPTIONS:
+   - Never ask a question that assumes the candidate has experienced something that is not supported by their resume/context.
+   - Do NOT assume the candidate:
+     * disagreed with a supervisor or coworker
+     * missed a deadline or failed at a project
+     * led a team or conducted code reviews (unless explicitly stated in resume)
+     * used a specific unlisted framework/tool
+     * handled a specific production incident or outage
+     * achieved a specific unlisted metric
+     * performed an activity not present in their evidence
+
+3. BEHAVIORAL QUESTION HANDLING:
+   - If the resume contains evidence of collaboration, debugging, projects, internships, etc., ask questions based on those verified experiences (e.g. "During your internship, you collaborated with other developers on feature development. Can you describe a situation where you had to coordinate with another developer to complete a task?").
+   - If a behavioral topic is not supported by the resume (e.g. conflict, missed deadline, team leadership), use a clearly hypothetical question instead (e.g. "Suppose you disagree with a teammate about an implementation approach. How would you handle the situation?", "Describe a challenge you encountered while completing one of your technical projects. How did you identify the problem and work toward a solution?").
+
+4. COMPANY-SPECIFIC QUESTIONS:
+   - Only reference company characteristics (such as "clean code", "innovation", "fast-paced culture") if explicitly present in the supplied job description or company context. Otherwise, ask: "What specifically interests you about the ${params.targetRole || "Software Engineer"} role at this company?"
+
+5. TECHNICAL & PROJECT QUESTIONS:
+   - May explore implementation details of projects and technologies listed in the resume, but do NOT invent architecture, scale, APIs, algorithms, datasets, or deployment environments that the resume does not establish.
 
 Return ONLY a valid JSON object with this exact shape:
 {
@@ -1478,17 +1500,17 @@ Return ONLY a valid JSON object with this exact shape:
     { "q": "...", "hint": "..." }
   ],
   "Resume & Projects": [
-    { "q": "Specific question about Project 1 or their internship listed on their resume", "hint": "..." },
-    { "q": "Specific question about Project 2 or technical trade-offs made in their listed projects", "hint": "..." },
+    { "q": "Specific question exploring a project or internship listed on their resume without inventing unmentioned tech", "hint": "..." },
+    { "q": "Specific question about technical trade-offs in their listed projects", "hint": "..." },
     { "q": "...", "hint": "..." }
   ],
   "Behavioral": [
-    { "q": "Behavioral question using STAR method relevant to their experience level and projects", "hint": "..." },
+    { "q": "Behavioral question grounded in verified experience or phrased hypothetically if experience is unevidenced", "hint": "..." },
     { "q": "...", "hint": "..." },
     { "q": "...", "hint": "..." }
   ],
   "HR & Situational": [
-    { "q": "Question exploring career goals, learning methodology, and alignment with target role", "hint": "..." },
+    { "q": "Question exploring career goals, learning methodology, and role alignment without unevidenced assumptions", "hint": "..." },
     { "q": "...", "hint": "..." },
     { "q": "...", "hint": "..." }
   ]
