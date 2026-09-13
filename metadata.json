@@ -1,6 +1,6 @@
 {
   "name": "Grad Career Aid",
-  "description": "AI-powered career assistant for graduate students with resume analysis, interview prep, skill gap analysis, and cover letter builder.",
+  "description": "ResuMate — AI-powered resume and career preparation application for CUET students, fresh graduates, interns, and entry-level job seekers with resume analysis, ATS scoring, interview prep, and direct PDF builder.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

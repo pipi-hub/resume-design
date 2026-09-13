@@ -27,7 +27,7 @@ export function ScoreRing({
   className,
 }: Props) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  const stroke = 10;
+  const stroke = 9;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   return (
@@ -45,7 +45,8 @@ export function ScoreRing({
             cy={size / 2}
             r={r}
             fill="none"
-            stroke="var(--muted)"
+            stroke="var(--border)"
+            className="opacity-40"
             strokeWidth={stroke}
           />
           <circle
@@ -62,16 +63,20 @@ export function ScoreRing({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="font-display text-3xl font-bold">
+          <span className="font-display text-3xl font-bold text-foreground">
             {value}
             {suffix}
           </span>
           {max !== 100 || suffix === "" ? (
-            <span className="text-xs text-muted-foreground">of {max}</span>
+            <span className="text-[11px] font-medium text-muted-foreground">of {max}</span>
           ) : null}
         </div>
       </div>
-      {label ? <span className="text-sm font-medium text-muted-foreground">{label}</span> : null}
+      {label ? (
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+          {label}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CheckCircle2, Download, Eye, FileText, Loader2, Save, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  Eye,
+  FileText,
+  Loader2,
+  Printer,
+  Save,
+  Sparkles,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,11 +24,12 @@ import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/common/PageHeader";
 import { InfoHint } from "@/components/common/InfoHint";
 import { BulletImprover } from "@/components/app/BulletImprover";
+import { ResumePreview } from "@/components/app/ResumePreview";
+import { exportResumeToPDF } from "@/lib/pdf-export";
 import { templates, user } from "@/lib/mock-data";
 import { useAuthUser } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
 import { resumeService } from "@/services/resumeService";
-import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/_authenticated/builder")({
   head: () => ({
@@ -89,6 +99,8 @@ function ResumeBuilder() {
   const [form, setForm] = useState<Form>(initial);
   const [template, setTemplate] = useState(templates[2]?.name ?? "Minimal");
   const [saving, setSaving] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const resumeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -170,90 +182,41 @@ function ResumeBuilder() {
     }
   }
 
-  function handleDownloadPDF() {
+  async function handleDownloadPDF() {
+    if (exportingPdf) return;
+    setExportingPdf(true);
+    const toastId = toast.loading("Generating your high-fidelity PDF resume...");
     try {
-      const doc = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 18;
-      const contentWidth = pageWidth - margin * 2;
-      let y = 20;
-
-      // Header: Name
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(30, 41, 59); // Slate 800
-      doc.text(form.name || "Your Name", margin, y);
-      y += 6;
-
-      // Header: Role
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(12);
-      doc.setTextColor(79, 70, 229); // Indigo 600
-      doc.text(form.role || "Software Engineer", margin, y);
-      y += 6;
-
-      // Header: Contact Info
-      doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139); // Slate 500
-      const contactLine = [form.email, form.phone, form.location].filter(Boolean).join("  |  ");
-      doc.text(contactLine, margin, y);
-      y += 4;
-      if (form.links) {
-        doc.text(form.links, margin, y);
-        y += 4;
+      if (!resumeRef.current) {
+        throw new Error("Resume container not initialized yet.");
       }
 
-      // Divider
-      y += 2;
-      doc.setDrawColor(203, 213, 225); // Slate 300
-      doc.setLineWidth(0.4);
-      doc.line(margin, y, margin + contentWidth, y);
-      y += 6;
+      const res = await exportResumeToPDF({
+        element: resumeRef.current,
+        formData: form,
+        templateName: template,
+      });
 
-      const addSection = (title: string, content: string) => {
-        if (!content.trim()) return;
-        if (y > 260) {
-          doc.addPage();
-          y = 20;
-        }
-
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.setTextColor(15, 23, 42); // Slate 900
-        doc.text(title.toUpperCase(), margin, y);
-        y += 2;
-
-        doc.setDrawColor(226, 232, 240);
-        doc.line(margin, y, margin + contentWidth, y);
-        y += 4;
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(9.5);
-        doc.setTextColor(51, 65, 85);
-
-        const lines = doc.splitTextToSize(content, contentWidth);
-        doc.text(lines, margin, y);
-        y += lines.length * 4.5 + 4;
-      };
-
-      addSection("Professional Summary", form.summary);
-      addSection("Education", form.education);
-      addSection("Experience", form.experience);
-      addSection("Projects", form.projects);
-      addSection("Technical Skills", form.skills);
-
-      const fileName = `${(form.name || "Resume").toLowerCase().replace(/\s+/g, "-")}-resume.pdf`;
-      doc.save(fileName);
-      toast.success("Resume PDF downloaded ✓");
+      toast.dismiss(toastId);
+      if (res.fallbackUsed) {
+        toast.success("Resume PDF downloaded successfully (vector format) ✓");
+      } else {
+        toast.success("Resume PDF downloaded successfully ✓", {
+          description: `Formatted with the ${template} template layout.`,
+        });
+      }
     } catch (err) {
-      console.warn("PDF generation failed, falling back to print:", err);
+      toast.dismiss(toastId);
+      console.warn("Direct PDF export encountered an error, triggering print fallback:", err);
+      toast.error("Could not complete direct canvas capture, opening print dialog...");
       window.print();
+    } finally {
+      setExportingPdf(false);
     }
+  }
+
+  function handlePrint() {
+    window.print();
   }
 
   function handleCheckATS() {
@@ -279,8 +242,21 @@ function ResumeBuilder() {
                 {saving ? <Loader2 className="animate-spin" /> : <Save />}
                 {saving ? "Saving..." : "Save draft"}
               </Button>
-              <Button variant="hero" onClick={handleDownloadPDF}>
-                <Download /> Download PDF
+              <Button
+                variant="outline"
+                onClick={handlePrint}
+                title="Print or save via browser print dialog"
+              >
+                <Printer /> Print
+              </Button>
+              <Button
+                variant="hero"
+                onClick={handleDownloadPDF}
+                disabled={exportingPdf}
+                title="Download directly as a formatted PDF"
+              >
+                {exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}
+                {exportingPdf ? "Exporting PDF..." : "Download PDF"}
               </Button>
             </>
           }
@@ -454,45 +430,39 @@ function ResumeBuilder() {
           </Tabs>
 
           <Card className="h-fit shadow-card lg:sticky lg:top-24">
-            <CardContent className="p-5">
+            <CardContent className="p-4 sm:p-5">
               <div className="flex items-center justify-between">
                 <p className="flex items-center gap-2 text-sm font-semibold">
                   <Eye className="size-4 text-primary" /> Live preview
                 </p>
-                <Badge variant="secondary">{template}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{template}</Badge>
+                </div>
               </div>
-              <Separator className="my-4" />
-              <article className="space-y-3 text-xs leading-relaxed max-h-[60vh] overflow-y-auto pr-1">
-                <header>
-                  <h2 className="font-display text-base font-bold">{form.name || "Your name"}</h2>
-                  <p className="text-primary font-medium">{form.role}</p>
-                  <p className="text-muted-foreground">
-                    {[form.email, form.phone, form.location].filter(Boolean).join(" • ")}
-                  </p>
-                  <p className="text-muted-foreground">{form.links}</p>
-                </header>
-                {[
-                  { label: "Summary", value: form.summary },
-                  { label: "Education", value: form.education },
-                  { label: "Experience", value: form.experience },
-                  { label: "Projects", value: form.projects },
-                  { label: "Skills", value: form.skills },
-                ].map((s) =>
-                  s.value.trim() ? (
-                    <section key={s.label}>
-                      <h3 className="border-b pb-1 text-[11px] font-semibold uppercase tracking-wider">
-                        {s.label}
-                      </h3>
-                      <p className="mt-1 whitespace-pre-line text-muted-foreground">{s.value}</p>
-                    </section>
-                  ) : null,
-                )}
-              </article>
-              <Button variant="soft" className="mt-5 w-full" onClick={handleCheckATS}>
-                <Sparkles /> Check this resume's ATS score
-              </Button>
-              <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <FileText className="size-3.5" /> Exports as a single-page, ATS-safe PDF.
+              <Separator className="my-3.5" />
+
+              {/* Scrollable Live Document Preview */}
+              <div className="max-h-[64vh] overflow-y-auto rounded-lg border border-slate-200/80 bg-slate-50/80 p-2 sm:p-3">
+                <ResumePreview ref={resumeRef} form={form} template={template} />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <Button
+                  variant="hero"
+                  className="w-full"
+                  onClick={handleDownloadPDF}
+                  disabled={exportingPdf}
+                >
+                  {exportingPdf ? <Loader2 className="animate-spin" /> : <Download />}
+                  {exportingPdf ? "Generating PDF..." : "Download PDF"}
+                </Button>
+                <Button variant="soft" className="w-full" onClick={handleCheckATS}>
+                  <Sparkles /> Check this resume's ATS score
+                </Button>
+              </div>
+
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+                <FileText className="size-3.5" /> Direct PDF download with {template} styling.
               </p>
             </CardContent>
           </Card>

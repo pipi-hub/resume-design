@@ -5,12 +5,28 @@ export async function extractTextFromFile(
   fileName: string,
   mimeType?: string,
 ): Promise<string> {
+  if (!fileBuffer || fileBuffer.byteLength === 0) {
+    throw new Error(`The file "${fileName}" is empty (0 bytes). Please upload a valid document.`);
+  }
+
   const ext = fileName.split(".").pop()?.toLowerCase() || "";
 
-  // 1. Plain text or Markdown
-  if (mimeType?.includes("text") || ext === "txt" || ext === "md" || ext === "json") {
+  // 1. Plain text or Markdown documents
+  if (mimeType?.includes("text") || ext === "txt" || ext === "md") {
     const decoder = new TextDecoder("utf-8");
-    return decoder.decode(fileBuffer);
+    const text = decoder.decode(fileBuffer).trim();
+    if (!text || text.length < 10) {
+      throw new Error(
+        `The file "${fileName}" contains insufficient or empty text. Please upload a comprehensive resume.`,
+      );
+    }
+    // Guard against someone renaming a binary PDF to .txt
+    if (text.startsWith("%PDF-")) {
+      throw new Error(
+        `"${fileName}" appears to be a PDF renamed to .txt. Please upload it with a .pdf extension.`,
+      );
+    }
+    return text;
   }
 
   // 2. DOCX documents
@@ -20,13 +36,24 @@ export async function extractTextFromFile(
   ) {
     try {
       const result = await mammoth.extractRawText({ arrayBuffer: fileBuffer });
-      return result.value.trim();
+      const text = result.value.trim();
+      if (text.length >= 20) {
+        return text;
+      }
+      throw new Error(
+        `The Word document "${fileName}" appears to be empty or contains only non-extractable images.`,
+      );
     } catch (err) {
-      console.warn("DOCX extraction error:", err);
+      if (err instanceof Error && err.message.includes("empty")) {
+        throw err;
+      }
+      throw new Error(
+        `Failed to parse Word document "${fileName}". Please ensure it is an uncorrupted, standard .docx file.`,
+      );
     }
   }
 
-  // 3. PDF documents (extract text stream / pdfjs)
+  // 3. PDF documents (extract text stream via pdfjs)
   if (ext === "pdf" || mimeType === "application/pdf") {
     try {
       const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
@@ -49,39 +76,32 @@ export async function extractTextFromFile(
         fullText += pageText + "\n\n";
       }
 
-      if (fullText.trim().length > 20) {
-        return fullText.trim();
+      const cleaned = fullText
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+
+      // Check if we extracted meaningful alphanumeric content
+      const alphanumericCount = (cleaned.match(/[a-zA-Z0-9]/g) || []).length;
+      if (cleaned.length >= 30 && alphanumericCount >= 20 && !cleaned.startsWith("%PDF-")) {
+        return cleaned;
       }
+
+      throw new Error(
+        `Could not extract text from "${fileName}". The PDF appears to be a scanned image or contains no selectable text layer. Please upload a text-based PDF or DOCX resume.`,
+      );
     } catch (pdfErr) {
-      console.warn("PDF extraction fallback:", pdfErr);
-      // Fallback: extract ASCII printable strings from raw buffer
-      const decoder = new TextDecoder("latin1");
-      const raw = decoder.decode(fileBuffer);
-      const textChunks: string[] = [];
-      const regex = /BT[\s\S]*?ET|\((.*?)\)Tj|\[(.*?)\]TJ/g;
-      let match: RegExpExecArray | null;
-      while ((match = regex.exec(raw)) !== null) {
-        if (match[1]) textChunks.push(match[1]);
-        if (match[2]) textChunks.push(match[2].replace(/-\d+/g, " "));
+      if (pdfErr instanceof Error && pdfErr.message.includes("scanned image")) {
+        throw pdfErr;
       }
-      if (textChunks.length > 5) {
-        return textChunks
-          .join(" ")
-          .replace(/\\([()\\])/g, "$1")
-          .trim();
-      }
+      throw new Error(
+        `Could not extract text from "${fileName}". The document may be corrupted, password-protected, or a scanned image. Please upload a selectable text PDF or DOCX file.`,
+      );
     }
   }
 
-  // Fallback to text decoding
-  try {
-    const text = new TextDecoder("utf-8", { fatal: false }).decode(fileBuffer);
-    // eslint-disable-next-line no-control-regex
-    const cleaned = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").trim();
-    if (cleaned.length > 50) return cleaned;
-  } catch (e) {
-    console.warn("Text decoding error:", e);
-  }
-
-  return "Resume uploaded: " + fileName;
+  throw new Error(
+    `Unsupported file format for "${fileName}". Please upload a PDF, DOCX, TXT, or MD resume file.`,
+  );
 }

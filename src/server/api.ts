@@ -66,21 +66,54 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
         buffer = bytes.buffer;
       }
 
-      const text = await extractTextFromFile(buffer, fileName, mimeType);
-      return new Response(JSON.stringify({ text, fileName }), {
-        status: 200,
-        headers: corsHeaders,
-      });
+      try {
+        const text = await extractTextFromFile(buffer, fileName, mimeType);
+        return new Response(JSON.stringify({ text, fileName }), {
+          status: 200,
+          headers: corsHeaders,
+        });
+      } catch (extractErr) {
+        return new Response(
+          JSON.stringify({
+            error:
+              extractErr instanceof Error
+                ? extractErr.message
+                : "Failed to extract text from file.",
+          }),
+          {
+            status: 422,
+            headers: corsHeaders,
+          },
+        );
+      }
     }
 
     if (path === "/api/analyze" && request.method === "POST") {
       const body = await request.json();
       const { resumeText, jobDescription, jobTitle, company, careerLevel } = body;
-      if (!resumeText) {
-        return new Response(JSON.stringify({ error: "resumeText is required" }), {
-          status: 400,
-          headers: corsHeaders,
-        });
+      if (!resumeText || typeof resumeText !== "string" || resumeText.trim().length < 25) {
+        return new Response(
+          JSON.stringify({
+            error: "A valid resume document with readable content is required for analysis.",
+          }),
+          {
+            status: 400,
+            headers: corsHeaders,
+          },
+        );
+      }
+
+      if (resumeText.startsWith("%PDF-")) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "The resume contains raw binary PDF data instead of extracted text. Please re-upload your document.",
+          }),
+          {
+            status: 422,
+            headers: corsHeaders,
+          },
+        );
       }
 
       const result = await analyzeResumeWithGemini({
@@ -218,28 +251,47 @@ export async function handleApiRequest(request: Request): Promise<Response | nul
     }
 
     if (path === "/api/ai-chat" && request.method === "POST") {
-      const body = await request.json();
-      const { message, history, context } = body;
-      if (!message) {
-        return new Response(JSON.stringify({ error: "message is required" }), {
-          status: 400,
-          headers: corsHeaders,
-        });
-      }
+      try {
+        const body = await request.json().catch(() => ({}));
+        const { message, history, context } = body;
+        if (!message || typeof message !== "string" || !message.trim()) {
+          return new Response(JSON.stringify({ error: "message is required" }), {
+            status: 400,
+            headers: corsHeaders,
+          });
+        }
 
-      const res = await aiChatWithGemini({ message, history, context });
-      return new Response(
-        JSON.stringify({
-          reply: res.reply,
-          provider: res.provider,
-          modelUsed: res.modelUsed,
-          attempts: res.attempts,
-        }),
-        {
-          status: 200,
-          headers: corsHeaders,
-        },
-      );
+        const res = await aiChatWithGemini({
+          message: message.trim(),
+          history: Array.isArray(history) ? history : [],
+          context: typeof context === "object" && context !== null ? context : {},
+        });
+
+        return new Response(
+          JSON.stringify({
+            reply: res.reply,
+            provider: res.provider,
+            modelUsed: res.modelUsed,
+            attempts: res.attempts,
+          }),
+          {
+            status: 200,
+            headers: corsHeaders,
+          },
+        );
+      } catch (chatError) {
+        console.warn("[ResuMate AI] /api/ai-chat caught error:", chatError);
+        return new Response(
+          JSON.stringify({
+            reply: "Sorry, I couldn't generate a response right now. Please try again in a moment.",
+            error: "Chat service currently unavailable",
+          }),
+          {
+            status: 200,
+            headers: corsHeaders,
+          },
+        );
+      }
     }
 
     return new Response(JSON.stringify({ error: "API Route Not Found" }), {

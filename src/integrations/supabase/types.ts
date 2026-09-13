@@ -345,6 +345,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      applications: {
+        Row: {
+          id: string;
+          user_id: string;
+          company_name: string;
+          job_title: string;
+          job_url: string | null;
+          job_description: string | null;
+          application_date: string;
+          status: "saved" | "applied" | "interview" | "offer" | "rejected";
+          resume_id: string | null;
+          resume_name: string | null;
+          ats_score: number | null;
+          match_score: number | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          company_name: string;
+          job_title: string;
+          job_url?: string | null;
+          job_description?: string | null;
+          application_date?: string;
+          status?: "saved" | "applied" | "interview" | "offer" | "rejected";
+          resume_id?: string | null;
+          resume_name?: string | null;
+          ats_score?: number | null;
+          match_score?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          company_name?: string;
+          job_title?: string;
+          job_url?: string | null;
+          job_description?: string | null;
+          application_date?: string;
+          status?: "saved" | "applied" | "interview" | "offer" | "rejected";
+          resume_id?: string | null;
+          resume_name?: string | null;
+          ats_score?: number | null;
+          match_score?: number | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

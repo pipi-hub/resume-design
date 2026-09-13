@@ -1,9 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, CheckCircle2, FileUp, Loader2, Trash2, UploadCloud } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileCheck,
+  FileText,
+  FileUp,
+  Info,
+  Loader2,
+  Shield,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AppShell } from "@/components/app/AppShell";
 import { PageHeader } from "@/components/common/PageHeader";
@@ -20,13 +32,16 @@ export const Route = createFileRoute("/_authenticated/analyze")({
         content: "Upload a PDF or DOCX resume and get an ATS score with clear improvement steps.",
       },
       { property: "og:title", content: "Analyze Your Resume — ResuMate" },
-      { property: "og:description", content: "Drag and drop your resume to start the analysis." },
+      {
+        property: "og:description",
+        content: "Drag and drop your resume to start the analysis.",
+      },
     ],
   }),
   component: Analyze,
 });
 
-const ok = ["pdf", "docx"];
+const ok = ["pdf", "docx", "txt", "md"];
 
 function Analyze() {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -89,12 +104,34 @@ function Analyze() {
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
         <PageHeader
-          title="Analyze Your Resume"
-          subtitle="Step 1 of 3 — upload the resume you want to check. Nothing is shared with recruiters."
+          title="Let's make your resume stronger."
+          subtitle="Upload your resume and we'll analyze it against your target role."
         />
 
-        <Card className="shadow-card">
-          <CardContent className="p-6">
+        {/* Step Indicator */}
+        <div className="grid grid-cols-3 gap-2 border-b border-border pb-4 text-xs">
+          <div className="flex items-center gap-2 text-primary font-bold">
+            <span className="flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px]">
+              1
+            </span>
+            <span>Upload Resume</span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground font-medium">
+            <span className="flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px]">
+              2
+            </span>
+            <span>Target Job</span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground font-medium">
+            <span className="flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground text-[10px]">
+              3
+            </span>
+            <span>ATS Report</span>
+          </div>
+        </div>
+
+        <Card className="shadow-card border-border/80">
+          <CardContent className="p-6 sm:p-8">
             <div
               role="button"
               tabIndex={0}
@@ -114,29 +151,53 @@ function Analyze() {
                 const f = e.dataTransfer.files?.[0];
                 if (f) void accept(f);
               }}
-              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 text-center transition-colors ${
-                dragging ? "border-primary bg-accent" : "border-border hover:bg-muted/60"
+              className={`flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all ${
+                dragging
+                  ? "border-primary bg-primary/10 scale-[0.99]"
+                  : "border-border/80 bg-muted/20 hover:border-primary/50 hover:bg-muted/40"
               }`}
             >
-              <span className="flex size-14 items-center justify-center rounded-2xl gradient-hero text-primary-foreground">
-                <UploadCloud className="size-6" />
-              </span>
-              <p className="mt-4 font-display text-lg font-semibold">
-                Drag and drop your PDF or DOCX file here
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-4 shadow-xs">
+                <UploadCloud className="size-7" />
+              </div>
+              <p className="font-display text-lg font-semibold text-foreground">
+                Drag and drop your resume file here
               </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                or choose a file from your device
+              <p className="mt-1 text-sm text-muted-foreground max-w-sm">
+                or click to choose a document from your computer
               </p>
-              <Button variant="outline" className="mt-5" type="button">
-                <FileUp /> Browse Files
+              <Button
+                variant="outline"
+                className="mt-5 shadow-xs hover:border-primary hover:text-primary"
+                type="button"
+              >
+                <FileUp className="size-4 mr-1.5" /> Browse Files
               </Button>
-              <p className="mt-4 text-xs text-muted-foreground">
-                Supported formats: PDF, DOCX · Maximum file size: 5 MB
-              </p>
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-border/60 pt-4 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground">Supported:</span>
+                  <Badge variant="outline" className="text-[11px] font-medium">
+                    PDF
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px] font-medium">
+                    DOCX
+                  </Badge>
+                  <Badge variant="outline" className="text-[11px] font-medium">
+                    TXT
+                  </Badge>
+                </div>
+                <span className="text-muted-foreground/40">•</span>
+                <span className="text-muted-foreground">Max 5 MB</span>
+                <span className="text-muted-foreground/40">•</span>
+                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <Shield className="size-3 text-emerald-600 dark:text-emerald-400" /> Private &
+                  Encrypted
+                </span>
+              </div>
               <input
                 ref={inputRef}
                 type="file"
-                accept=".pdf,.docx"
+                accept=".pdf,.docx,.txt,.md"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
@@ -148,71 +209,115 @@ function Analyze() {
             {error ? (
               <p
                 role="alert"
-                className="mt-4 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive font-medium"
               >
                 {error}
               </p>
             ) : null}
 
             {uploading ? (
-              <div className="mt-5 rounded-xl border bg-card p-4">
-                <p className="flex items-center gap-2 text-sm font-semibold">
+              <div className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                   <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
-                  Uploading resume…
+                  Uploading & extracting resume text…
                 </p>
-                <Progress value={65} className="mt-3 h-1.5" />
+                <Progress value={65} className="mt-3 h-2" />
               </div>
             ) : null}
 
             {resume && !uploading ? (
-              <div className="mt-5 rounded-xl border bg-card p-4">
+              <div className="mt-5 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
                 <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 truncate text-sm font-semibold">
-                      <CheckCircle2 className="size-4 shrink-0 text-success" />
-                      {resume.name ||
-                        (resume as unknown as { file_name?: string }).file_name ||
-                        "Resume.pdf"}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{resume.size}</p>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-10 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                      <FileCheck className="size-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-bold text-foreground">
+                          {resume.name ||
+                            (resume as unknown as { file_name?: string }).file_name ||
+                            "Resume.pdf"}
+                        </p>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 font-semibold"
+                        >
+                          <CheckCircle2 className="size-3 mr-1 inline" />
+                          Ready
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {resume.size} • Extracted & verified
+                      </p>
+                    </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Remove file"
-                    disabled={deleting}
-                    onClick={() => void removeResume()}
-                  >
-                    {deleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() => inputRef.current?.click()}
+                      className="text-xs h-8"
+                    >
+                      Change File
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Remove file"
+                      disabled={deleting}
+                      onClick={() => void removeResume()}
+                      className="hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                    >
+                      {deleting ? (
+                        <Loader2 className="animate-spin size-4" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <Progress value={100} className="mt-3 h-1.5" />
-                <p className="mt-2 text-xs text-muted-foreground">Resume uploaded successfully ✓</p>
               </div>
             ) : null}
 
             <Button
               variant="hero"
               size="lg"
-              className="mt-6 w-full"
+              className="mt-6 w-full shadow-lift"
               disabled={!resume || uploading}
               asChild={Boolean(resume && !uploading)}
             >
               {resume && !uploading ? (
                 <Link to="/job-description">
-                  Continue to Job Description <ArrowRight />
+                  Analyze Resume
+                  <ArrowRight className="size-4 ml-1.5" />
                 </Link>
               ) : (
-                <span>Continue to Job Description</span>
+                <span>Upload a Resume to Continue</span>
               )}
             </Button>
           </CardContent>
         </Card>
 
+        {/* ATS Parsing Tips */}
+        <Card className="shadow-xs border-border/60 bg-card/60">
+          <CardContent className="p-4 sm:p-5 flex items-start gap-3">
+            <Info className="size-5 text-primary shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1 text-muted-foreground">
+              <p className="font-semibold text-foreground">ATS Compatibility Tip</p>
+              <p>
+                Standard ATS systems parse clean, single-column documents best. Avoid placing
+                important skills inside graphic bars, images, or multi-column tables.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
         <p className="text-center text-xs text-muted-foreground">
-          Don't have a resume yet?{" "}
+          Don't have a resume file yet?{" "}
           <Link to="/builder" className="font-medium text-primary hover:underline">
-            Build one in ResuMate
+            Build an ATS-optimized resume from scratch
           </Link>
         </p>
       </div>

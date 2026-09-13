@@ -49,7 +49,8 @@ export const resumeService = {
       });
 
       if (!response.ok) {
-        throw new Error(`Text extraction failed: ${response.statusText}`);
+        const errJson = await response.json().catch(() => null);
+        throw new Error(errJson?.error || `Text extraction failed with status ${response.status}`);
       }
 
       const data = await response.json();
@@ -57,7 +58,16 @@ export const resumeService = {
         return data.text.trim();
       }
     } catch (err) {
-      console.warn("Server text extraction failed, trying client fallback:", err);
+      if (
+        err instanceof Error &&
+        (err.message.includes("scanned image") ||
+          err.message.includes("empty") ||
+          err.message.includes("Could not extract") ||
+          err.message.includes("Unsupported file format"))
+      ) {
+        throw err;
+      }
+      console.warn("Server text extraction failed, checking plain text fallback:", err);
     }
 
     // Fallback: plain text / markdown decoding
@@ -132,11 +142,12 @@ export const resumeService = {
   },
 
   /** Lists the signed-in user's resumes, newest first. */
-  async listResumes(): Promise<ResumeRow[]> {
-    const { data, error } = await supabase
-      .from("resumes")
-      .select("*")
-      .order("created_at", { ascending: false });
+  async listResumes(userId?: string): Promise<ResumeRow[]> {
+    let query = supabase.from("resumes").select("*").order("created_at", { ascending: false });
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data ?? [];
   },
@@ -458,11 +469,15 @@ export const resumeService = {
   },
 
   /** Lists saved cover letters for the current user. */
-  async listCoverLetters(): Promise<CoverLetterRow[]> {
-    const { data, error } = await supabase
+  async listCoverLetters(userId?: string): Promise<CoverLetterRow[]> {
+    let query = supabase
       .from("cover_letters")
       .select("*")
       .order("created_at", { ascending: false });
+    if (userId) {
+      query = query.eq("user_id", userId);
+    }
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return data ?? [];
   },
@@ -552,8 +567,11 @@ export const resumeService = {
           resumeText?: string | undefined;
           targetRole?: string | undefined;
           atsScore?: number | undefined;
+          jobMatch?: number | undefined;
           jobDescription?: string | undefined;
           company?: string | undefined;
+          careerLevel?: string | undefined;
+          skills?: string[] | undefined;
           requirementMatches?: unknown[] | undefined;
           skillGaps?: unknown[] | undefined;
           analysis?: unknown | undefined;
@@ -573,6 +591,158 @@ export const resumeService = {
 
     const data = await response.json();
     return data.reply || "";
+  },
+
+  /**
+   * Lists persisted chat history for the user.
+   */
+  async listChatHistory(
+    userId?: string,
+  ): Promise<Array<{ role: "user" | "ai"; text: string; timestamp?: string }>> {
+    const storageKey = `resumate_chat_history_${userId || "guest"}`;
+
+    // 1. Try Supabase chat_messages table if user is authenticated
+    if (userId) {
+      try {
+        const { data, error } = await (
+          supabase as unknown as {
+            from: (table: string) => {
+              select: (cols: string) => {
+                eq: (
+                  col: string,
+                  val: string,
+                ) => {
+                  order: (
+                    col: string,
+                    opt: { ascending: boolean },
+                  ) => Promise<{
+                    data: Array<{
+                      role: string;
+                      message?: string;
+                      content?: string;
+                      text?: string;
+                      created_at?: string;
+                    }> | null;
+                    error: unknown;
+                  }>;
+                };
+              };
+            };
+          }
+        )
+          .from("chat_messages")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map((d) => ({
+            role: d.role === "user" ? ("user" as const) : ("ai" as const),
+            text: d.message || d.content || d.text || "",
+            timestamp: d.created_at,
+          }));
+        }
+      } catch {
+        // Fall back to client storage if table does not exist
+      }
+    }
+
+    // 2. Fall back to local storage
+    try {
+      const local = localStorage.getItem(storageKey);
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Storage unavailable or invalid JSON
+    }
+
+    return [];
+  },
+
+  /**
+   * Persists a chat message to history.
+   */
+  async saveChatMessage(params: {
+    userId?: string;
+    role: "user" | "ai";
+    text: string;
+  }): Promise<void> {
+    const storageKey = `resumate_chat_history_${params.userId || "guest"}`;
+
+    // 1. Always save to local storage for fast recovery and offline/reload persistence
+    try {
+      const existing = localStorage.getItem(storageKey);
+      const list: Array<{ role: "user" | "ai"; text: string; timestamp?: string }> = existing
+        ? JSON.parse(existing)
+        : [];
+      list.push({
+        role: params.role,
+        text: params.text,
+        timestamp: new Date().toISOString(),
+      });
+      // Cap history to 50 messages
+      const capped = list.slice(-50);
+      localStorage.setItem(storageKey, JSON.stringify(capped));
+    } catch {
+      // Ignore storage errors
+    }
+
+    // 2. Try Supabase chat_messages table if user is authenticated
+    if (params.userId) {
+      try {
+        await (
+          supabase as unknown as {
+            from: (table: string) => {
+              insert: (data: unknown) => Promise<unknown>;
+            };
+          }
+        )
+          .from("chat_messages")
+          .insert({
+            user_id: params.userId,
+            role: params.role,
+            message: params.text,
+            created_at: new Date().toISOString(),
+          });
+      } catch {
+        // Table may not exist yet in Supabase, ignore
+      }
+    }
+  },
+
+  /**
+   * Clears the user's chat history for starting a fresh conversation.
+   */
+  async clearChatHistory(userId?: string): Promise<void> {
+    const storageKey = `resumate_chat_history_${userId || "guest"}`;
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // Ignore
+    }
+
+    if (userId) {
+      try {
+        await (
+          supabase as unknown as {
+            from: (table: string) => {
+              delete: () => {
+                eq: (col: string, val: string) => Promise<unknown>;
+              };
+            };
+          }
+        )
+          .from("chat_messages")
+          .delete()
+          .eq("user_id", userId);
+      } catch {
+        // Ignore
+      }
+    }
   },
 
   /**
@@ -770,9 +940,67 @@ export const resumeService = {
       };
     });
 
+    const qualityScore =
+      latestReport?.overallRating === "Strong"
+        ? 88
+        : latestReport?.overallRating === "Adequate"
+          ? 74
+          : latestReport?.overallRating === "Needs Work"
+            ? 58
+            : latestAts !== null
+              ? Math.min(96, Math.max(50, Math.round(latestAts * 0.95)))
+              : null;
+
+    const skillsCount =
+      Array.isArray(profile?.skills) && profile.skills.length > 0
+        ? profile.skills.length
+        : (latestReport?.keywordsHave?.length ?? (latestAts !== null ? 12 : 0));
+
+    const metrics = {
+      atsScore: latestAts,
+      jobMatch: latestMatch,
+      qualityScore,
+      resumesCount: resumes.length,
+      skillsCount,
+    };
+
+    const careerProgress = {
+      resumeImprovement: {
+        score: latestAts,
+        label:
+          totalAnalyses > 1
+            ? `${diff >= 0 ? "+" : ""}${diff} pts improved`
+            : totalAnalyses === 1
+              ? "Initial baseline"
+              : "No analyses yet",
+        progress: latestAts ?? 0,
+      },
+      skillsAcquired: {
+        count: skillsCount,
+        label: `${skillsCount} skills identified`,
+        progress: Math.min(100, Math.round((skillsCount / 15) * 100)),
+      },
+      applicationProgress: {
+        count: totalAnalyses,
+        label: `${totalAnalyses} versions analyzed`,
+        progress: Math.min(100, totalAnalyses * 25),
+      },
+      interviewReadiness: {
+        score:
+          latestAts !== null
+            ? Math.min(95, Math.round((latestAts + (latestMatch ?? 70)) / 2))
+            : null,
+        label: latestAts !== null ? "Questions generated" : "Pending resume upload",
+        progress:
+          latestAts !== null ? Math.min(95, Math.round((latestAts + (latestMatch ?? 70)) / 2)) : 0,
+      },
+    };
+
     return {
       stats: dynamicStats,
       recentAnalyses: mappedAnalyses,
+      metrics,
+      careerProgress,
       profile,
     };
   },

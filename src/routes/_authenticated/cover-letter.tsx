@@ -227,7 +227,10 @@ function CoverLetter() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Professional">Professional (Metric-focused)</SelectItem>
-                      <SelectItem value="Enthusiastic">Enthusiastic (High Energy)</SelectItem>
+                      <SelectItem value="Confident">Confident (Impact & Leadership)</SelectItem>
+                      <SelectItem value="Enthusiastic">
+                        Enthusiastic (High Energy & Passion)
+                      </SelectItem>
                       <SelectItem value="Friendly">Friendly (Warm & Collaborative)</SelectItem>
                       <SelectItem value="Formal">Formal (Conservative & Structured)</SelectItem>
                     </SelectContent>
@@ -333,6 +336,10 @@ function CoverLetter() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <Button variant="outline" size="sm" disabled={loading} onClick={generate}>
+                        <RefreshCw className={`size-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
+                        Regenerate
+                      </Button>
                       {currentLetterId ? (
                         <Button
                           variant="outline"
@@ -361,7 +368,7 @@ function CoverLetter() {
                   </div>
 
                   <Textarea
-                    className="font-mono text-sm leading-relaxed min-h-[420px] resize-y p-4 bg-muted/20 focus:bg-background transition-colors"
+                    className="font-mono text-sm leading-relaxed min-h-[440px] resize-y p-5 bg-[#F8FAFC] border-[#E2E8F0] focus:bg-white text-[#1E293B] rounded-xl transition-colors dark:bg-muted/20 dark:border-border dark:focus:bg-background dark:text-foreground"
                     value={letter}
                     onChange={(e) => setLetter(e.target.value)}
                   />

@@ -27,17 +27,12 @@ function getGenAI(): GoogleGenAI | null {
 function handleGeminiError(context: string, error: unknown): void {
   const errMsg = error instanceof Error ? error.message : String(error);
   if (
-    errMsg.includes("403") ||
-    errMsg.includes("PERMISSION_DENIED") ||
     errMsg.includes("401") ||
     errMsg.includes("UNAUTHENTICATED") ||
-    errMsg.includes("API key not valid") ||
-    errMsg.includes("denied access")
+    errMsg.includes("API key not valid")
   ) {
     geminiApiDisabled = true;
-    console.warn(
-      `[ResuMate AI] Gemini API key access restricted (${context}), falling back to deterministic synthesis engine.`,
-    );
+    console.warn(`[ResuMate AI] Gemini API key invalid (${context}).`);
   } else {
     console.warn(`[ResuMate AI] ${context} error:`, errMsg);
   }
@@ -103,8 +98,7 @@ export type ImproveBulletResult = {
 
 const GEMINI_CANDIDATE_MODELS = [
   "gemini-3.1-flash-lite",
-  "gemini-3.7-flash",
-  "gemini-3.1-pro-preview",
+  "gemini-3.8-flash",
   "gemini-flash-latest",
 ];
 
@@ -348,10 +342,10 @@ function sanitizeAnalysis(data: Partial<AnalysisResult>): AnalysisResult {
   };
 }
 
-function fallbackAnalysis(
+export function fallbackAnalysis(
   resumeText: string,
   jobDescription: string,
-  jobTitle: string,
+  jobTitle: string = "Software Engineer",
 ): AnalysisResult {
   const resume = resumeText.toLowerCase();
   const jd = jobDescription.toLowerCase();
@@ -515,10 +509,11 @@ function fallbackAnalysis(
   }
 
   // Check for keyword wording gap (e.g. fixed bugs demonstrated -> Debugging keyword wording)
-  if (/\bfixed\s+(?:minor\s+)?bugs\b/i.test(resume) && !/\bdebugging\b/i.test(resume)) {
+  const bugMatch = resumeText.match(/([^\n.?!]*\bfixed\s+(?:[a-zA-Z]+\s+)?bugs\b[^\n.?!]*)/i);
+  if (bugMatch && !/\bdebugging\b/i.test(resume)) {
     keywordWordingGaps.push({
       concept: "Debugging",
-      resumeEvidence: "Fixed minor JavaScript bugs and tested application features",
+      resumeEvidence: bugMatch[1].trim().replace(/^[•\-*]\s*/, ""),
       recommendedKeywords: ["Debugging", "Bug Fixing", "Defect Resolution"],
     });
   }
@@ -615,37 +610,58 @@ function fallbackAnalysis(
   );
 
   const suggestions: AnalysisResult["suggestions"] = [];
-  suggestions.push({
-    title: "Quantify Internship Impact with Real Figures",
-    problem:
-      "Internship bullets describe responsibilities without mentioning scale or measured impact.",
-    evidence:
-      "Bullets state 'Fixed minor JavaScript bugs and tested application features' without volume or results.",
-    why: "Recruiters and hiring managers look for quantifiable contributions (e.g. tickets resolved, user scope).",
-    fix: "If you know the actual figures, state them honestly: 'Investigated and resolved [actual number] JavaScript bug tickets, testing feature functionality across internal web application modules.' Do not invent numbers.",
-  });
 
-  if (keywordWordingGaps.length > 0) {
+  // Dynamically inspect candidate lines for evidence
+  const rawCandidateLines = resumeText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        l.length > 25 &&
+        !/^(experience|education|skills|projects|summary|profile|contact)/i.test(l),
+    );
+
+  const unquantifiedLine = rawCandidateLines.find(
+    (l) =>
+      !/\b(\d+%|\d+\+?\s*(users|clients|students|requests|records|tickets|ms|seconds|features))\b/i.test(
+        l,
+      ),
+  );
+
+  if (unquantifiedLine) {
+    const cleanLine = unquantifiedLine.replace(/^[•\-*]\s*/, "").slice(0, 110);
     suggestions.push({
-      title: "Add Industry Standard Keywords for Demonstrated Skills",
+      title: "Quantify Experience & Project Impact with Real Figures",
       problem:
-        "You demonstrate debugging experience, but the exact keyword 'Debugging' is not explicitly in your text.",
-      evidence:
-        "Resume mentions 'Fixed minor JavaScript bugs', which demonstrates debugging ability.",
-      why: "ATS search parsers often search for exact terms like 'Debugging' alongside programming languages.",
-      fix: "Naturally include the term: 'Performed front-end debugging and bug resolution across JavaScript web components.'",
+        "Resume bullet points describe responsibilities without specifying volume, scale, or measurable outcomes.",
+      evidence: `Statement: "${cleanLine}" lacks specific volume or outcome metrics.`,
+      why: "Recruiters and hiring managers look for quantifiable contributions (e.g. tickets resolved, user scale, latency reductions).",
+      fix: "Where you have verified numbers from your coursework or work, state them honestly: 'Resolved [actual count] issues across [system name], improving feature reliability.' Do not invent numbers.",
     });
   }
 
-  if (keywordsMissing.includes("Unit Testing")) {
+  if (keywordWordingGaps.length > 0) {
+    for (const gap of keywordWordingGaps) {
+      suggestions.push({
+        title: `Add Exact Industry Terminology for "${gap.concept}"`,
+        problem: `Your resume demonstrates practical experience with ${gap.concept.toLowerCase()}, but does not explicitly use the standard keyword "${gap.concept}".`,
+        evidence: `Resume evidence: "${gap.resumeEvidence}"`,
+        why: `ATS search filters often query exact keywords such as "${gap.recommendedKeywords.join('", "')}".`,
+        fix: `Naturally incorporate the standard terminology into your bullet: "${gap.resumeEvidence.replace(/fixed/i, "Resolved and debugged")}."`,
+      });
+    }
+  }
+
+  const testLine = rawCandidateLines.find((l) => /\btest(?:ed|ing|s)?\b/i.test(l));
+  if (testLine && keywordsMissing.includes("Unit Testing")) {
+    const cleanTestLine = testLine.replace(/^[•\-*]\s*/, "").slice(0, 110);
     suggestions.push({
-      title: "Demonstrate Testing Framework Exposure If Applicable",
+      title: "Specify Testing Frameworks If Applicable",
       problem:
-        "Software testing is mentioned, but specific testing frameworks (e.g. PyTest, JUnit, Jest) are not listed.",
-      evidence:
-        "Resume states 'tested application features' without specifying testing tools or test types.",
-      why: "Engineering roles value automated unit and integration testing experience.",
-      fix: "If you have used automated testing in coursework or projects, specify the real framework used (e.g. 'Wrote test cases in [actual framework used, e.g. PyTest/JUnit] to validate data operations'). If you have not used a framework yet, build a small project with unit tests.",
+        "Software testing is mentioned, but specific testing frameworks (e.g. Jest, PyTest, JUnit) are not listed.",
+      evidence: `Resume mentions: "${cleanTestLine}" without naming automated test tools.`,
+      why: "Modern engineering teams prioritize automated unit and integration testing experience.",
+      fix: "If you have used a test library in projects or coursework, state the actual tool used (e.g. Jest, PyTest, JUnit). If not, consider adding a test suite to one of your existing projects.",
     });
   }
 
@@ -958,7 +974,8 @@ Return JSON in this exact schema:
 
 Original Bullet:
 "${params.bullet}"
-${params.context ? `Target Role / Context: ${params.context}` : ""}`;
+${params.targetRole ? `Target Role: ${params.targetRole}\n` : ""}Optimization Category & Focus:
+${params.context || "Impact & Metrics: Focus on active verbs, clear structure, and ATS scanability without inventing figures."}`;
 
     for (const model of GEMINI_CANDIDATE_MODELS) {
       attempts++;
@@ -1064,9 +1081,13 @@ Return ONLY the full cover letter text.`;
           contents: prompt,
         });
         if (response.text && response.text.trim().length > 100) {
+          const letterText = sanitizeCoverLetterEvidence(
+            response.text.trim(),
+            params.resumeText || "",
+          );
           console.log(`[AI] Cover Letter → GEMINI (${model})`);
           return {
-            letter: response.text.trim(),
+            letter: letterText,
             provider: "gemini",
             modelUsed: model,
             attempts,
@@ -1086,6 +1107,64 @@ Return ONLY the full cover letter text.`;
     provider: "fallback",
     attempts,
   };
+}
+
+export function sanitizeCoverLetterEvidence(letter: string, resume: string): string {
+  const resumeLower = resume.toLowerCase();
+  let sanitized = letter;
+
+  // 1. Guard against inventing unverified mentoring/leadership if resume doesn't document it
+  if (
+    !resumeLower.includes("mentor") &&
+    /\b(?:mentored|mentoring|served as a mentor)\b/i.test(sanitized)
+  ) {
+    sanitized = sanitized.replace(
+      /\b(?:mentored and guided|mentored)\s+[a-zA-Z\s]+(?=[,.])/gi,
+      "collaborated closely with teammates",
+    );
+  }
+
+  // 2. Guard against inventing curriculum ownership
+  if (!resumeLower.includes("curriculum") && /\bcurriculum\s+ownership\b/i.test(sanitized)) {
+    sanitized = sanitized.replace(
+      /\bcurriculum\s+ownership\b/gi,
+      "academic coursework and project development",
+    );
+  }
+
+  // 3. Guard against inventing remote teaching
+  if (
+    !resumeLower.includes("remote teach") &&
+    !resumeLower.includes("teaching") &&
+    /\bremote\s+teaching\b/i.test(sanitized)
+  ) {
+    sanitized = sanitized.replace(/\bremote\s+teaching\b/gi, "collaborative knowledge sharing");
+  }
+
+  // 4. Guard against inventing academic competition involvement
+  if (
+    !resumeLower.includes("competition") &&
+    !resumeLower.includes("hackathon") &&
+    /\bacademic\s+competition(?:\s+involvement)?\b/i.test(sanitized)
+  ) {
+    sanitized = sanitized.replace(
+      /\bacademic\s+competition(?:\s+involvement)?\b/gi,
+      "academic coursework and technical projects",
+    );
+  }
+
+  // 5. Guard against converting general listed skills into fictional production achievements if no production experience exists
+  if (
+    !resumeLower.includes("production") &&
+    /\b(?:production\s+deployment\s+experience|running\s+in\s+production)\b/i.test(sanitized)
+  ) {
+    sanitized = sanitized.replace(
+      /\b(?:production\s+deployment\s+experience|running\s+in\s+production)\b/gi,
+      "practical project implementation",
+    );
+  }
+
+  return sanitized;
 }
 
 function synthesizeTailoredCoverLetter(params: {
@@ -1579,45 +1658,187 @@ Return ONLY a valid JSON object with this exact shape:
   };
 }
 
+export type AiChatContext = {
+  resumeText?: string;
+  targetRole?: string;
+  atsScore?: number;
+  jobMatch?: number;
+  jobDescription?: string;
+  company?: string;
+  careerLevel?: string;
+  experienceLevel?: string;
+  skills?: string[];
+  requirementMatches?: Array<{
+    requirement: string;
+    status: string;
+    evidence?: string;
+    note?: string;
+  }>;
+  skillGaps?: Array<{
+    skill: string;
+    importance?: string;
+    rec?: string;
+    weeks?: string;
+  }>;
+  analysis?: {
+    atsScore?: number;
+    jobMatch?: number;
+    qualityScore?: number;
+    keywordsHave?: string[];
+    keywordsMissing?: string[];
+    suggestions?: Array<{
+      title?: string;
+      problem?: string;
+      fix?: string;
+    }>;
+  };
+};
+
 export async function aiChatWithGemini(params: {
   message: string;
-  history?: Array<{ role: "user" | "ai"; text: string }>;
-  context?: {
-    resumeText?: string;
-    targetRole?: string;
-    atsScore?: number;
-  };
+  history?: Array<{ role: "user" | "ai" | "model" | "assistant"; text: string }>;
+  context?: AiChatContext;
 }): Promise<{ reply: string } & AiProviderMetadata> {
   const targetRole = params.context?.targetRole || "Software Engineering / Tech Professional";
-  const atsScore = params.context?.atsScore ?? 85;
-  const resumeSummary = params.context?.resumeText
-    ? params.context.resumeText.slice(0, 800)
-    : "Candidate seeking opportunities in " + targetRole;
+  const company = params.context?.company || "";
+  const careerLevel = params.context?.careerLevel || params.context?.experienceLevel || "";
+  const atsScore = params.context?.atsScore ?? params.context?.analysis?.atsScore;
+  const jobMatch = params.context?.jobMatch ?? params.context?.analysis?.jobMatch;
+  const resumeText = params.context?.resumeText || "";
+  const jobDescription = params.context?.jobDescription || "";
+  const skills = params.context?.skills || [];
+  const requirementMatches = params.context?.requirementMatches || [];
+  const skillGaps = params.context?.skillGaps || [];
+  const suggestions = params.context?.analysis?.suggestions || [];
 
-  const prompt = `You are ResuMate AI, an expert, encouraging, and highly articulate career and resume mentor for students, new graduates, and early-career job seekers.
+  // Build grounded analysis summaries if present
+  let analysisSummary = "";
+  if (atsScore !== undefined) {
+    analysisSummary += `- ATS Compatibility Score: ${atsScore}%\n`;
+  }
+  if (jobMatch !== undefined) {
+    analysisSummary += `- Target Job Match Score: ${jobMatch}%\n`;
+  }
+  if (requirementMatches.length > 0) {
+    const demonstrated = requirementMatches.filter(
+      (r) => r.status === "Demonstrated" || r.status === "Partially Demonstrated",
+    );
+    const missing = requirementMatches.filter((r) => r.status === "Not Demonstrated");
+    if (demonstrated.length > 0) {
+      analysisSummary += `- Demonstrated Requirements: ${demonstrated
+        .slice(0, 5)
+        .map((r) => `"${r.requirement}" (${r.status}${r.evidence ? `: ${r.evidence}` : ""})`)
+        .join("; ")}\n`;
+    }
+    if (missing.length > 0) {
+      analysisSummary += `- Missing/Unmet Requirements: ${missing
+        .slice(0, 5)
+        .map((r) => `"${r.requirement}"`)
+        .join("; ")}\n`;
+    }
+  }
+  if (skillGaps.length > 0) {
+    analysisSummary += `- Prioritized Skill Gaps: ${skillGaps
+      .slice(0, 5)
+      .map((g) => `${g.skill} (${g.importance || "High"}: ${g.rec || ""})`)
+      .join("; ")}\n`;
+  }
+  if (suggestions.length > 0) {
+    analysisSummary += `- Priority Resume Improvements: ${suggestions
+      .slice(0, 3)
+      .map((s) => `${s.title}: ${s.fix}`)
+      .join("; ")}\n`;
+  }
 
-User Profile Context:
+  // System instruction enforcing the ResuMate AI persona, non-hallucination, and targeted questions
+  const systemInstruction = `You are ResuMate, an AI career and resume assistant.
+
+Your job is to help the user improve their resume, understand job requirements, identify skill gaps, prepare for interviews, write professional career documents, and make realistic career decisions.
+
+Core Directives:
+1. Grounded & Factual: Always use the user's actual conversation context and available resume/job information.
+2. Strict Anti-Hallucination: NEVER invent user information. Never assume or invent experience, internships, degrees, projects, skills, technologies, certifications, or metrics that the user or their resume has not explicitly provided. If the user hasn't mentioned something, treat it as unknown.
+3. Conversational Memory & Continuity: Maintain strict continuity with all previous messages in this conversation. Connect new user questions and replies directly to what they told you earlier (e.g., their background, major, lack of internship, specific projects, preferred stack). Do not lose context across turns.
+4. Missing Information: When information is missing to provide a tailored answer, ask 1-2 focused, intelligent follow-up questions instead of guessing or providing vague advice.
+5. Realistic & Honest Career Advice: Provide practical, honest advice based on the user's specific situation.
+   - If a user asks whether they can claim or add a skill they only watched tutorials for or have zero practical experience with, gently explain why that could backfire in technical screenings, and provide a realistic roadmap (e.g., list as "Currently Learning" or build a focused mini-project first).
+   - If a student lacks internships, guide them on how to highlight academic/personal projects, open-source contributions, or technical problem solving to compensate realistically.
+6. Tailored & Non-Canned: Never use generic boilerplate or repetitive canned responses. Every answer must directly respond to the candidate's actual message and context.
+7. Answer Structure:
+   - For simple questions: provide a concise, direct, helpful answer.
+   - For career/resume challenges:
+     1) Acknowledge the user's specific situation.
+     2) Provide a concrete, tailored recommendation.
+     3) Explain the 'why' (recruiter or ATS perspective).
+     4) Give an actionable next step or focused follow-up question.
+   - Tone: Helpful, professional, friendly, natural, clear, encouraging, honest, and practical. Avoid robotic boilerplate, repeating the user's question, or excessive emojis.
+
+==================================================
+AVAILABLE CANDIDATE & ROLE CONTEXT
+==================================================
 - Target Role: ${targetRole}
-- Current ATS Match Score: ${atsScore}%
-- Resume Background Excerpt:
-"""
-${resumeSummary}
-"""
+${company ? `- Target Company: ${company}` : ""}
+${careerLevel ? `- Experience/Career Level: ${careerLevel}` : ""}
+${skills.length > 0 ? `- Verified User Skills: ${skills.join(", ")}` : ""}
 
-Recent Conversation History:
-${(params.history || [])
-  .slice(-6)
-  .map((m) => `${m.role === "user" ? "Candidate" : "ResuMate AI"}: ${m.text}`)
-  .join("\n")}
+${
+  resumeText.trim()
+    ? `Candidate Resume Content (Ground Truth):\n"""\n${resumeText.slice(0, 10000)}\n"""`
+    : "No resume text currently provided."
+}
 
-Candidate's Current Question:
-"${params.message}"
+${
+  jobDescription.trim() ? `Target Job Description:\n"""\n${jobDescription.slice(0, 4000)}\n"""` : ""
+}
 
-Instructions:
-1. Provide a direct, highly customized, and actionable answer tailored specifically to their target role (${targetRole}) and resume background.
-2. If they provide a bullet point or text to improve, give them 2 high-impact rewritten options using strong action verbs and quantifiable metrics.
-3. If they ask about ATS scores, skills, projects, or interview prep, give clear, prioritized bullet points or 2-4 focused sentences.
-4. Keep tone warm, constructive, and professional. Avoid generic filler.`;
+${analysisSummary ? `Resume Analysis Context:\n${analysisSummary}` : ""}`;
+
+  // Prepare multi-turn contents
+  const rawItems: Array<{ role: "user" | "model"; text: string }> = [];
+  if (params.history && Array.isArray(params.history)) {
+    for (const m of params.history) {
+      if (!m || !m.text || !m.text.trim()) continue;
+      const role = m.role === "user" ? "user" : "model";
+      rawItems.push({ role, text: m.text.trim() });
+    }
+  }
+
+  const cleanCurrentMsg = (params.message || "").trim();
+  if (
+    !rawItems.length ||
+    rawItems[rawItems.length - 1].role !== "user" ||
+    rawItems[rawItems.length - 1].text !== cleanCurrentMsg
+  ) {
+    if (cleanCurrentMsg) {
+      rawItems.push({ role: "user", text: cleanCurrentMsg });
+    }
+  }
+
+  // Keep up to 14 recent turns to maintain deep conversational context within token window
+  const slicedItems = rawItems.length > 14 ? rawItems.slice(-14) : rawItems;
+
+  // Gemini contents must alternate user and model, starting with user
+  const contents: Array<{ role: "user" | "model"; parts: [{ text: string }] }> = [];
+  for (const item of slicedItems) {
+    if (!contents.length) {
+      if (item.role === "model") {
+        // Skip leading greeting from model so the conversation begins with user
+        continue;
+      }
+      contents.push({ role: "user", parts: [{ text: item.text }] });
+    } else {
+      const prev = contents[contents.length - 1];
+      if (prev.role === item.role) {
+        prev.parts[0].text += "\n\n" + item.text;
+      } else {
+        contents.push({ role: item.role, parts: [{ text: item.text }] });
+      }
+    }
+  }
+
+  if (!contents.length && cleanCurrentMsg) {
+    contents.push({ role: "user", parts: [{ text: cleanCurrentMsg }] });
+  }
 
   const ai = getGenAI();
   let attempts = 0;
@@ -1628,12 +1849,18 @@ Instructions:
       try {
         const response = await ai.models.generateContent({
           model,
-          contents: prompt,
+          config: {
+            systemInstruction,
+            temperature: 0.7,
+          },
+          contents,
         });
-        if (response.text && response.text.trim().length > 20) {
-          console.log(`[AI] AI Assistant → GEMINI (${model})`);
+
+        const replyText = response.text ? response.text.trim() : "";
+        if (replyText.length > 5) {
+          console.log(`[ResuMate AI] Chat answered via Gemini (${model})`);
           return {
-            reply: response.text.trim(),
+            reply: replyText,
             provider: "gemini",
             modelUsed: model,
             attempts,
@@ -1641,186 +1868,16 @@ Instructions:
         }
       } catch (error) {
         handleGeminiError(`chat (${model})`, error);
-        if (geminiApiDisabled) break;
       }
     }
   }
 
-  console.log(`[AI] AI Assistant → FALLBACK`);
-  const reply = synthesizeContextualAiChatReply(params);
+  console.warn(`[ResuMate AI] Chat unavailable across candidate models`);
   return {
-    reply,
+    reply: "Sorry, I couldn't generate a response right now. Please try again in a moment.",
     provider: "fallback",
     attempts,
   };
-}
-
-function synthesizeContextualAiChatReply(params: {
-  message: string;
-  history?: Array<{ role: "user" | "ai"; text: string }>;
-  context?: {
-    resumeText?: string;
-    targetRole?: string;
-    atsScore?: number;
-  };
-}): string {
-  const msg = params.message.toLowerCase();
-  const rawMsg = params.message.trim();
-  const targetRole = params.context?.targetRole || "Software Engineer";
-  const atsScore = params.context?.atsScore;
-  const resume = params.context?.resumeText || "";
-
-  // 1. Follow-up detection from history
-  if (
-    msg.includes("what about that") ||
-    msg.includes("follow up") ||
-    msg.includes("and then") ||
-    msg.includes("explain more") ||
-    msg.includes("can you expand") ||
-    msg.includes("which one do you recommend") ||
-    msg.includes("how do i do that")
-  ) {
-    return `Building on our previous discussion regarding **${targetRole}**:
-1. **Practical Execution:** Start by implementing this directly in your featured portfolio repository or project section.
-2. **Resume Visibility:** Ensure the terminology appears under both your *Skills* header and within an impact bullet point (e.g., *"Utilized modern practices to optimize delivery by 30%"*).
-3. **Interview Readiness:** Prepare a 60-second STAR story detailing why you made this design choice and the concrete outcome achieved.`;
-  }
-
-  // 2. Specific unique skill inquiry in resume or message
-  const uniqueSkillMatch =
-    rawMsg.match(
-      /(?:about|with|using|in|learn|master|highlight (?:my (?:experience with )?)?|showcase)\s+([A-Za-z0-9+#.-]+(?:\s+[A-Za-z0-9+#.-]+)?)/i,
-    ) || rawMsg.match(/([A-Z][a-z0-9+#.-]+(?:\s+[A-Z][a-z0-9+#.-]+)?)/);
-
-  const stopWords = new Set([
-    "the",
-    "my",
-    "this",
-    "that",
-    "more",
-    "your",
-    "how",
-    "what",
-    "can",
-    "should",
-    "i",
-    "for",
-    "at",
-    "my resume",
-    "resume",
-    "profile",
-    "application",
-    "skills",
-    "skill",
-    "experience",
-    "projects",
-    "job",
-    "role",
-    "score",
-    "ats",
-    "interview",
-    "cover letter",
-    "letter",
-  ]);
-
-  if (
-    uniqueSkillMatch &&
-    uniqueSkillMatch[1] &&
-    !stopWords.has(uniqueSkillMatch[1].toLowerCase().trim()) &&
-    (msg.includes("skill") ||
-      msg.includes("learn") ||
-      msg.includes("using") ||
-      msg.includes("highlight") ||
-      msg.includes("experience with"))
-  ) {
-    const skillName = uniqueSkillMatch[1];
-    return `Regarding **${skillName}** for your **${targetRole}** goals:
-• **Resume Positioning:** Highlight **${skillName}** prominently in your *Technical Skills* matrix and back it up with at least one practical project bullet.
-• **Recruiter Impact:** Demonstrate end-to-end usage—explain how you configured, integrated, or optimized systems using **${skillName}** to deliver measurable results.
-• **Next Step:** If applying to roles demanding **${skillName}**, include a direct link to a GitHub repository or live deployment showcasing your implementation.`;
-  }
-
-  // 3. Bullet point rewrite request
-  if (
-    msg.includes("bullet") ||
-    msg.includes("rewrite") ||
-    msg.includes("improve this") ||
-    msg.includes("how does this sound") ||
-    rawMsg.startsWith("Worked on") ||
-    rawMsg.startsWith("Built") ||
-    rawMsg.startsWith("Created") ||
-    rawMsg.startsWith("Helped") ||
-    rawMsg.startsWith("Responsible for")
-  ) {
-    const cleaned = rawMsg
-      .replace(
-        /^(can you (please )?rewrite (this )?(bullet )?(:|")?|improve (this )?(bullet )?(:|")?|how does this sound (for a bullet)?(:|")?|rewrite (this )?(bullet )?(:|")?)/i,
-        "",
-      )
-      .replace(/^bullet\s*:\s*/i, "")
-      .replace(/["']/g, "")
-      .trim();
-
-    return `Here are two high-impact ways to rewrite your bullet point for a **${targetRole}** role without adding invented metrics:
-
-• **Option 1 (Action & Outcome):** "Architected and delivered ${cleaned ? cleaned.toLowerCase() : "core system modules"} following modern standards, improving system reliability and maintainability."
-• **Option 2 (Stack & Technical Depth):** "Engineered robust ${cleaned ? cleaned.toLowerCase() : "feature pipelines"} with clean modular code, comprehensive error handling, and end-to-end integration."
-
-💡 *Honest Formula:* **[Strong Action Verb] + [Specific Technical Task] + [Tools/Technologies Used] + [Real Measured Outcome or Benefit]**. If you have an authentic metric (e.g. % faster, count of users/tests), include only the actual verified number.`;
-  }
-
-  // 4. ATS Score explanation & improvement
-  if (msg.includes("score") || msg.includes("ats") || msg.includes("percentage")) {
-    const scoreStr = atsScore !== undefined ? `${atsScore}%` : "your current score";
-    return `Your ATS score (${scoreStr}) measures how effectively automated parsing algorithms index your resume against **${targetRole}** job postings.
-
-To boost your score into the 90%+ tier:
-1. **Keyword Alignment:** Mirror exact technical terms from target job descriptions (e.g., specific frameworks, databases, and CI/CD tools).
-2. **Standard Section Titles:** Use universal headers like *Experience*, *Education*, *Projects*, and *Skills*.
-3. **Format Cleanliness:** Keep a single-column layout without nested text boxes, graphics, or complex tables that confuse ATS parsers.`;
-  }
-
-  // 5. Target job / role improvement advice
-  if (
-    msg.includes("target job") ||
-    msg.includes("improve for") ||
-    msg.includes("fit for") ||
-    msg.includes("prepare for") ||
-    msg.includes("role")
-  ) {
-    return `To maximize your candidate strength for **${targetRole}**:
-
-1. **Targeted Technical Keywords:** Ensure core requirements matching ${targetRole} appear in your top 1/3 of the resume.
-2. **Depth over Breadth:** Showcase 2-3 deep, deployed projects rather than numerous shallow demos. Include architectural descriptions and test suites.
-3. **Quantifiable Metrics:** Ensure every experience and project bullet features measurable achievements (e.g., performance boosts, user adoption, uptime).`;
-  }
-
-  // 6. Projects & Portfolio advice
-  if (msg.includes("project") || msg.includes("portfolio") || msg.includes("github")) {
-    return `For a **${targetRole}** application, hiring managers prioritize quality over quantity:
-
-1. **Include Live Links & Repos:** Always link a deployed demo and a clean GitHub repo with a thorough README and architecture diagram.
-2. **Demonstrate Full Lifecycles:** Highlight automated testing, database migrations, authentication, and Docker containerization.
-3. **Quantify the Result:** State measurable performance metrics, e.g., *"Optimized database queries with indexing, cutting query response time by 40%"*.`;
-  }
-
-  // 7. Cover letters
-  if (msg.includes("cover letter") || msg.includes("letter") || msg.includes("application email")) {
-    return `For **${targetRole}** applications, an effective cover letter should be concise (3-4 paragraphs) and tailored:
-
-1. **Hook:** State the exact role and why this specific company's product or mission excites you.
-2. **Evidence:** Highlight 1-2 standout projects directly relevant to the team's tech stack.
-3. **Value Proposition:** Explain how your background will help solve their immediate technical goals.
-
-You can use ResuMate's **Cover Letter Generator** to produce a customized draft instantly!`;
-  }
-
-  // Default contextual mentor response
-  return `As you prepare your application for **${targetRole}** positions:
-
-• Make sure every bullet point highlights tangible results and technical ownership.
-• Ensure your core skills match the high-priority keywords found in target job postings.
-• Would you like me to rewrite a specific bullet point, suggest portfolio project ideas, or help you prepare for technical interviews?`;
 }
 
 export interface InterviewAnswerFeedback {

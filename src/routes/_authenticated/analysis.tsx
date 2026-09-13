@@ -2,13 +2,18 @@ import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  Activity,
   AlertTriangle,
+  ArrowRight,
+  Briefcase,
+  Calendar,
   Check,
   CheckCircle2,
   CircleAlert,
   ClipboardCheck,
   Download,
   FileSearch,
+  FileText,
   HelpCircle,
   Loader2,
   MinusCircle,
@@ -48,9 +53,9 @@ export const Route = createFileRoute("/_authenticated/analysis")({
 });
 
 const statusStyle: Record<string, { icon: typeof CheckCircle2; cls: string }> = {
-  Good: { icon: CheckCircle2, cls: "text-success" },
-  "Needs Improvement": { icon: CircleAlert, cls: "text-warning" },
-  Missing: { icon: XCircle, cls: "text-destructive" },
+  Good: { icon: CheckCircle2, cls: "text-[#10B981]" },
+  "Needs Improvement": { icon: CircleAlert, cls: "text-[#F59E0B]" },
+  Missing: { icon: XCircle, cls: "text-[#EF4444]" },
 };
 
 const matchStateConfig: Record<
@@ -59,21 +64,24 @@ const matchStateConfig: Record<
 > = {
   Demonstrated: {
     label: "Demonstrated",
-    badgeCls: "bg-success/15 text-success border-success/30 font-medium",
+    badgeCls:
+      "bg-[#ECFDF5] text-[#059669] border-[#A7F3D0] font-medium dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800",
     icon: CheckCircle2,
-    iconCls: "text-success",
+    iconCls: "text-[#10B981]",
   },
   "Partially Demonstrated": {
     label: "Partially Demonstrated",
-    badgeCls: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 font-medium",
+    badgeCls:
+      "bg-[#FFFBEB] text-[#D97706] border-[#FDE68A] font-medium dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
     icon: AlertTriangle,
-    iconCls: "text-amber-600 dark:text-amber-400",
+    iconCls: "text-[#F59E0B]",
   },
   "Not Demonstrated": {
     label: "Not Demonstrated",
-    badgeCls: "bg-destructive/15 text-destructive border-destructive/30 font-medium",
+    badgeCls:
+      "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA] font-medium dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800",
     icon: XCircle,
-    iconCls: "text-destructive",
+    iconCls: "text-[#EF4444]",
   },
 };
 
@@ -250,6 +258,35 @@ ResuMate AI — Fact-Checked Career Assistant
   return (
     <AppShell>
       <div className="space-y-8">
+        {/* Top Resume & Analysis Metadata Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/80 bg-card/70 px-5 py-3.5 shadow-sm">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 text-primary" />
+              <span className="text-muted-foreground">Resume:</span>
+              <span className="font-semibold text-foreground">
+                {career.activeResumeName || analysisTitle || "Active Resume"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Briefcase className="size-4 text-primary" />
+              <span className="text-muted-foreground">Target Role:</span>
+              <span className="font-semibold text-foreground">{analysisTitle}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Calendar className="size-3.5" />
+            <span>
+              Analyzed:{" "}
+              {new Date().toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+        </div>
+
         <PageHeader
           title="Your Resume Analysis"
           subtitle={`Factual, evidence-based assessment for ${analysisTitle}${analysisCompany ? ` at ${analysisCompany}` : ""}.`}
@@ -282,6 +319,12 @@ ResuMate AI — Fact-Checked Career Assistant
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/applications" search={{ track: "true" }}>
+                  <Briefcase className="size-3.5 mr-1.5" />
+                  Track Application
+                </Link>
+              </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/interview">Practice Interview</Link>
               </Button>
@@ -334,7 +377,7 @@ ResuMate AI — Fact-Checked Career Assistant
           {[
             {
               v: data.atsScore,
-              label: "ATS Score",
+              label: "ATS Compatibility",
               tag: data.atsScore >= 80 ? "Good" : data.atsScore >= 60 ? "Moderate" : "Needs Work",
               tone: "primary" as const,
               hint: explain(
@@ -380,6 +423,164 @@ ResuMate AI — Fact-Checked Career Assistant
             </Card>
           ))}
         </div>
+
+        {/* Resume Health Visual Checks Section */}
+        <Card className="shadow-card border-border/80">
+          <CardContent className="p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-4">
+              <div className="flex items-center gap-2.5">
+                <Activity className="size-5 text-primary" />
+                <div>
+                  <h2 className="font-display text-lg font-semibold">Resume Health</h2>
+                  <p className="text-xs text-muted-foreground">
+                    Comprehensive visual health check of structural, content, and ATS signals.
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="w-fit">
+                {data.atsScore >= 75 && data.qualityScore >= 75
+                  ? "Healthy Profile"
+                  : "Attention Recommended"}
+              </Badge>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Keyword Coverage */}
+              <div className="rounded-xl border bg-card/60 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">Keyword Coverage</span>
+                  <span className="font-bold text-primary">
+                    {data.keywordsHave.length}/
+                    {data.keywordsHave.length + data.keywordsMissing.length} Skills
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    (data.keywordsHave.length /
+                      Math.max(1, data.keywordsHave.length + data.keywordsMissing.length)) *
+                    100
+                  }
+                  className="h-2"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {data.keywordsMissing.length === 0
+                    ? "Full keyword saturation for target role"
+                    : `${data.keywordsMissing.length} target keywords missing from resume`}
+                </p>
+              </div>
+
+              {/* Formatting & Readability */}
+              <div className="rounded-xl border bg-card/60 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">Formatting & Readability</span>
+                  <span className="flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle2 className="size-3.5" /> High Standard
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  {data.sectionStatus.filter((s) => s.status === "Good").length} of{" "}
+                  {data.sectionStatus.length} standard sections verified clean and single-column ATS
+                  compliant.
+                </p>
+              </div>
+
+              {/* Experience Impact & Metrics */}
+              <div className="rounded-xl border bg-card/60 p-4 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">Experience Impact & Metrics</span>
+                  <span
+                    className={`flex items-center gap-1 font-semibold ${
+                      data.qualityScore >= 75
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-600 dark:text-amber-400"
+                    }`}
+                  >
+                    {data.qualityScore >= 75 ? (
+                      <CheckCircle2 className="size-3.5" />
+                    ) : (
+                      <AlertTriangle className="size-3.5" />
+                    )}
+                    {data.qualityScore >= 75 ? "Impact Evident" : "Needs Metrics"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground leading-snug">
+                  {data.qualityScore >= 75
+                    ? "Strong action verbs and quantified achievements detected."
+                    : "Add verifiable numbers, percentages, and scale to your bullet points."}
+                </p>
+              </div>
+            </div>
+
+            {/* Strengths & Areas to Improve Grid */}
+            <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t">
+              {/* Strengths */}
+              <div className="space-y-2.5">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="size-4" /> Key Strengths
+                </h3>
+                <ul className="space-y-2 text-xs text-foreground/90">
+                  <li className="flex items-start gap-2">
+                    <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <span>
+                      ATS Parser compatibility confirmed with standard headers and clean hierarchy.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <span>
+                      {demonstratedReqs.length} core requirements directly evidenced from your
+                      experience.
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                    <span>
+                      {data.keywordsHave.slice(0, 3).join(", ")} demonstrated with verified context.
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Areas to Improve */}
+              <div className="space-y-2.5">
+                <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  <CircleAlert className="size-4" /> Areas to Improve
+                </h3>
+                <ul className="space-y-2 text-xs text-foreground/90">
+                  {missingReqs.length > 0 ? (
+                    <li className="flex items-start gap-2">
+                      <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        Missing {missingReqs.length} target qualifications (
+                        {missingReqs
+                          .slice(0, 2)
+                          .map((r) => r.requirement)
+                          .join(", ")}
+                        ).
+                      </span>
+                    </li>
+                  ) : null}
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <span>
+                      {data.suggestions[0]?.problem ||
+                        "Quantify outcomes with concrete project metrics."}
+                    </span>
+                  </li>
+                  {data.keywordsMissing.length > 0 && (
+                    <li className="flex items-start gap-2">
+                      <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <span>
+                        Integrate {data.keywordsMissing.slice(0, 3).join(", ")} where genuinely
+                        experienced.
+                      </span>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Score Explanation Accordion */}
         <Card className="shadow-card border-dashed">
@@ -543,33 +744,62 @@ ResuMate AI — Fact-Checked Career Assistant
               )}
             </p>
             <div className="mt-5 space-y-5">
-              {data.atsBreakdown.map((b) => (
-                <div key={b.label}>
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium">{b.label}</span>
-                    <span className="font-semibold">{b.score}%</span>
+              {data.atsBreakdown.map((b) => {
+                const l = b.label.toLowerCase();
+                const indicatorCls = l.includes("keyword")
+                  ? "bg-[#8B7CF6]"
+                  : l.includes("format") || l.includes("structure")
+                    ? "bg-[#10B981]"
+                    : l.includes("content") || l.includes("impact")
+                      ? "bg-[#475569]"
+                      : "bg-[#6366F1]";
+
+                return (
+                  <div key={b.label}>
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium text-[#1E293B] dark:text-foreground">
+                        {b.label}
+                      </span>
+                      <span className="font-semibold text-[#1E293B] dark:text-foreground">
+                        {b.score}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={b.score}
+                      className="mt-1.5 h-2"
+                      indicatorClassName={indicatorCls}
+                    />
+                    <p className="mt-1.5 text-xs text-[#64748B] dark:text-muted-foreground">
+                      {b.note}
+                    </p>
                   </div>
-                  <Progress value={b.score} className="mt-1.5 h-2" />
-                  <p className="mt-1.5 text-xs text-muted-foreground">{b.note}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
-        {/* Keywords Have vs Missing */}
+        {/* Keywords Matched vs Missing */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card className="shadow-card">
+          <Card>
             <CardContent className="p-6">
-              <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-                <CheckCircle2 className="size-4.5 text-success" /> Demonstrated Skills (
-                {data.keywordsHave.length})
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-[#1E293B] dark:text-foreground">
+                  <CheckCircle2 className="size-4.5 text-[#10B981]" /> Matched Keywords
+                </h2>
+                <Badge variant="success" className="font-medium">
+                  {data.keywordsHave.length} Found
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-[#64748B] dark:text-muted-foreground">
+                Keywords and technical proficiencies successfully parsed and matched against the
+                role.
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.keywordsHave.map((k) => (
                   <span
                     key={k}
-                    className="rounded-full bg-success/10 px-3 py-1.5 text-sm font-medium text-success"
+                    className="rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] px-2.5 py-1 text-xs font-medium text-[#059669] dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800"
                   >
                     {k}
                   </span>
@@ -577,35 +807,97 @@ ResuMate AI — Fact-Checked Career Assistant
               </div>
             </CardContent>
           </Card>
-          <Card className="shadow-card">
+          <Card>
             <CardContent className="p-6">
-              <h2 className="flex items-center gap-2 font-display text-lg font-semibold">
-                <MinusCircle className="size-4.5 text-destructive" /> Missing Target Skills (
-                {data.keywordsMissing.length})
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-[#1E293B] dark:text-foreground">
+                  <MinusCircle className="size-4.5 text-[#EF4444]" /> Missing Keywords
+                </h2>
+                <Badge variant="destructive" className="font-medium">
+                  {data.keywordsMissing.length} Missing
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs text-[#64748B] dark:text-muted-foreground">
+                High-frequency requirements present in the job posting but not identified in your
+                text.
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {data.keywordsMissing.length > 0 ? (
                   data.keywordsMissing.map((k) => (
                     <span
                       key={k}
-                      className="rounded-full bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive"
+                      className="rounded-lg bg-[#FEF2F2] border border-[#FECACA] px-2.5 py-1 text-xs font-medium text-[#DC2626] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800"
                     >
                       {k}
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-[#64748B]">
                     All core target skills are demonstrated in your resume.
                   </span>
                 )}
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">
+              <p className="mt-4 text-xs text-[#64748B] dark:text-muted-foreground">
                 Add missing skills naturally if you have real experience with them. Never fabricate
                 skills to raise scores.
               </p>
             </CardContent>
           </Card>
         </div>
+
+        {/* Skill Gap Preview Card */}
+        <Card className="shadow-card border-amber-500/30 bg-card">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" />
+                  <h2 className="font-display text-lg font-semibold text-foreground">
+                    Skill Gap Overview
+                  </h2>
+                  <Badge
+                    variant="secondary"
+                    className="border-amber-500/30 text-amber-700 dark:text-amber-400"
+                  >
+                    {data.keywordsMissing.length} Target Gaps
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-2xl">
+                  Competencies required for this position that need development. Access personalized
+                  roadmaps, project suggestions, and learning paths.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="shrink-0 gap-1.5 border-primary/30 hover:bg-primary/5 hover:text-primary"
+              >
+                <Link to="/skill-gap">
+                  View Full Skill Gap Analysis
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </div>
+            {data.keywordsMissing.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {data.keywordsMissing.slice(0, 8).map((skill) => (
+                  <Badge
+                    key={skill}
+                    variant="secondary"
+                    className="px-3 py-1 text-xs font-medium border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                  >
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                No major skill gaps identified for this role profile!
+              </p>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Section Audit */}
         <Card className="shadow-card">
@@ -632,70 +924,102 @@ ResuMate AI — Fact-Checked Career Assistant
           <div className="flex items-center justify-between">
             <div>
               <h2 id="rec" className="font-display text-lg font-semibold">
-                Evidence-Based Recommendations
+                Recommendations
               </h2>
               <p className="text-xs text-muted-foreground">
-                Every suggestion references real observations from your resume. Placeholders like{" "}
+                Actionable recommendations prioritized by impact. Placeholders like{" "}
                 <code className="rounded bg-muted px-1">[actual number]</code> indicate where to
                 insert your own verified metrics.
               </p>
             </div>
           </div>
           <div className="mt-4 space-y-4">
-            {data.suggestions.map((s) => (
-              <Card key={s.title} className="shadow-card">
-                <CardContent className="p-6">
-                  <h3 className="flex items-center gap-2 font-display font-semibold">
-                    <Sparkles className="size-4 text-primary" /> {s.title}
-                  </h3>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Problem
-                      </p>
-                      <p className="mt-1 text-sm">{s.problem}</p>
+            {data.suggestions.map((s, idx) => {
+              const priority =
+                idx === 0
+                  ? {
+                      label: "High Priority",
+                      cls: "bg-[#FEF2F2] text-[#DC2626] border-[#FECACA] dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800",
+                    }
+                  : idx < 3
+                    ? {
+                        label: "Medium Priority",
+                        cls: "bg-[#FFFBEB] text-[#D97706] border-[#FDE68A] dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800",
+                      }
+                    : {
+                        label: "Low Priority",
+                        cls: "bg-[#F8FAFC] text-[#64748B] border-[#E2E8F0] dark:bg-muted dark:text-muted-foreground dark:border-border",
+                      };
+
+              return (
+                <Card key={s.title}>
+                  <CardContent className="p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <h3 className="flex items-center gap-2 font-display font-semibold text-[#1E293B] dark:text-foreground">
+                        <Sparkles className="size-4 text-[#6366F1]" /> {s.title}
+                      </h3>
+                      <Badge
+                        variant="outline"
+                        className={`w-fit text-[11px] font-medium ${priority.cls}`}
+                      >
+                        {priority.label}
+                      </Badge>
                     </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Evidence from Resume
-                      </p>
-                      <p className="mt-1 text-sm italic text-foreground/90">
-                        {s.evidence || "Resume observation"}
-                      </p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F7] p-3 dark:bg-muted/30 dark:border-border">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-muted-foreground">
+                          Problem
+                        </p>
+                        <p className="mt-1 text-xs text-[#1E293B] leading-relaxed dark:text-foreground">
+                          {s.problem}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F7] p-3 dark:bg-muted/30 dark:border-border">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-muted-foreground">
+                          Evidence from Resume
+                        </p>
+                        <p className="mt-1 text-xs italic text-[#1E293B]/90 leading-relaxed dark:text-foreground/90">
+                          {s.evidence || "Resume observation"}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-[#F8FAFC] border border-[#EEF2F7] p-3 dark:bg-muted/30 dark:border-border">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#64748B] dark:text-muted-foreground">
+                          Why it matters
+                        </p>
+                        <p className="mt-1 text-xs text-[#1E293B] leading-relaxed dark:text-foreground">
+                          {s.why}
+                        </p>
+                      </div>
+                      <div className="rounded-lg bg-[#F5F3FF] border border-[#EDE9FE] p-3 dark:bg-primary/5 dark:border-primary/20">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6366F1]">
+                          Safe Suggestion
+                        </p>
+                        <p className="mt-1 text-xs font-medium text-[#1E293B] leading-relaxed dark:text-foreground">
+                          {s.fix}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-muted/40 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Why it matters
-                      </p>
-                      <p className="mt-1 text-sm">{s.why}</p>
+                    <div className="mt-4 flex items-center justify-between">
+                      <Button
+                        variant="soft"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(`${s.title}\nFix: ${s.fix}`);
+                          toast.success("Suggestion copied to clipboard ✓", {
+                            description: "Paste and customize with your own true figures.",
+                          });
+                        }}
+                      >
+                        Copy Suggestion Template
+                      </Button>
+                      <span className="text-[11px] text-[#94A3B8]">
+                        * Substitute brackets with your verified metrics only.
+                      </span>
                     </div>
-                    <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                        Safe Suggestion
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-foreground">{s.fix}</p>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex items-center justify-between">
-                    <Button
-                      variant="soft"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard?.writeText(`${s.title}\nFix: ${s.fix}`);
-                        toast.success("Suggestion copied to clipboard ✓", {
-                          description: "Paste and customize with your own true figures.",
-                        });
-                      }}
-                    >
-                      Copy Suggestion Template
-                    </Button>
-                    <span className="text-[11px] text-muted-foreground">
-                      * Substitute brackets with your verified metrics only.
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </section>
 

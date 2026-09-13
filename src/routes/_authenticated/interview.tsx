@@ -326,10 +326,10 @@ function InterviewPrep() {
     label: string;
     icon: typeof Code2;
   }> = [
-    { key: "Technical", label: "Technical", icon: Code2 },
-    { key: "Resume & Projects", label: "Resume & Projects", icon: Briefcase },
-    { key: "Behavioral", label: "Behavioral", icon: MessagesSquare },
-    { key: "HR & Situational", label: "HR & Situational", icon: UserCheck },
+    { key: "Technical", label: "Technical Questions", icon: Code2 },
+    { key: "Behavioral", label: "Behavioral Questions", icon: MessagesSquare },
+    { key: "Resume & Projects", label: "Role-Specific Questions", icon: Briefcase },
+    { key: "HR & Situational", label: "HR & Situational Questions", icon: UserCheck },
   ];
 
   const hasResume = Boolean(activeResumeText && activeResumeText.length > 20);
@@ -338,8 +338,8 @@ function InterviewPrep() {
     <AppShell>
       <div className="space-y-8 max-w-6xl mx-auto pb-12">
         <PageHeader
-          title="Interview preparation"
-          subtitle={`AI-tailored technical, project, behavioral, and HR questions strictly grounded in your experience for: ${targetRole}.`}
+          title="Prepare With Confidence"
+          subtitle={`AI-tailored technical, behavioral, role-specific, and HR questions strictly grounded in your experience for: ${targetRole}.`}
           action={
             <div className="flex items-center gap-2">
               {data && (
@@ -632,12 +632,12 @@ function InterviewPrep() {
 
                                   <AccordionContent className="space-y-4 pt-1 pb-4">
                                     {/* How to answer coaching tip */}
-                                    <div className="rounded-md bg-muted/60 p-3 text-xs sm:text-sm border border-border/50 space-y-1">
-                                      <div className="flex items-center gap-1.5 font-semibold text-primary">
+                                    <div className="rounded-lg bg-[#F8FAFC] p-3.5 text-xs sm:text-sm border border-[#EEF2F7] space-y-1 dark:bg-muted/30 dark:border-border">
+                                      <div className="flex items-center gap-1.5 font-semibold text-[#6366F1]">
                                         <Lightbulb className="size-3.5 shrink-0" />
                                         <span>How to answer / Key talking points:</span>
                                       </div>
-                                      <p className="text-muted-foreground leading-relaxed pl-5">
+                                      <p className="text-[#64748B] leading-relaxed pl-5 dark:text-muted-foreground">
                                         {item.hint}
                                       </p>
                                     </div>
@@ -649,12 +649,12 @@ function InterviewPrep() {
                                           htmlFor={`notes-${noteKey}`}
                                           className="text-xs font-medium text-foreground flex items-center gap-1.5"
                                         >
-                                          <HelpCircle className="size-3.5 text-muted-foreground" />
+                                          <HelpCircle className="size-3.5 text-[#64748B]" />
                                           Your Practice Answer (Auto-saved)
                                         </Label>
                                         <div className="flex items-center gap-2">
                                           {notes[noteKey] && (
-                                            <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                            <span className="text-[11px] text-[#059669] dark:text-emerald-400 font-medium">
                                               Saved ✓
                                             </span>
                                           )}
@@ -666,10 +666,10 @@ function InterviewPrep() {
                                         placeholder="Outline your response using STAR (Situation, Task, Action, Result) or key architectural trade-offs..."
                                         value={notes[noteKey] ?? ""}
                                         onChange={(e) => handleNoteChange(noteKey, e.target.value)}
-                                        className="text-sm font-sans resize-y"
+                                        className="text-sm font-sans resize-y bg-[#F8FAFC] border-[#E2E8F0] focus:bg-white dark:bg-card dark:border-border dark:focus:bg-background"
                                       />
                                       <div className="flex items-center justify-between pt-1">
-                                        <p className="text-[11px] text-muted-foreground">
+                                        <p className="text-[11px] text-[#64748B] dark:text-muted-foreground">
                                           Write your actual experience without invented metrics.
                                         </p>
                                         <Button
@@ -682,16 +682,16 @@ function InterviewPrep() {
                                             notes[noteKey].trim().length < 5
                                           }
                                           onClick={() => handleEvaluateAnswer(noteKey, item.q, cat)}
-                                          className="gap-1.5 text-xs h-8 border-primary/30 hover:bg-primary/5 hover:text-primary"
+                                          className="gap-1.5 text-xs h-8 border-[#CBD5E1] hover:border-[#6366F1] hover:text-[#6366F1] dark:border-border"
                                         >
                                           {evaluatingKeys[noteKey] ? (
                                             <>
-                                              <RefreshCw className="size-3 animate-spin text-primary" />
+                                              <RefreshCw className="size-3 animate-spin text-[#6366F1]" />
                                               Evaluating Answer...
                                             </>
                                           ) : (
                                             <>
-                                              <Sparkles className="size-3 text-primary" />
+                                              <Sparkles className="size-3 text-[#6366F1]" />
                                               Get AI Evaluation & Follow-up
                                             </>
                                           )}
@@ -701,11 +701,11 @@ function InterviewPrep() {
 
                                     {/* AI Answer Evaluation Result */}
                                     {evaluations[noteKey] && (
-                                      <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-3.5 text-xs sm:text-sm">
-                                        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                                      <div className="mt-3 rounded-xl border border-[#EDE9FE] bg-[#F5F3FF] p-4.5 space-y-3.5 text-xs sm:text-sm dark:border-primary/20 dark:bg-primary/5">
+                                        <div className="flex items-center justify-between border-b border-[#EDE9FE] pb-2.5 dark:border-border/60">
                                           <div className="flex items-center gap-2">
-                                            <Sparkles className="size-4 text-primary" />
-                                            <span className="font-display font-semibold text-foreground">
+                                            <Sparkles className="size-4 text-[#6366F1]" />
+                                            <span className="font-display font-semibold text-[#1E293B] dark:text-foreground">
                                               AI Feedback & Evaluation
                                             </span>
                                           </div>
@@ -714,10 +714,10 @@ function InterviewPrep() {
                                               variant={
                                                 evaluations[noteKey].rating === "Excellent" ||
                                                 evaluations[noteKey].rating === "Strong"
-                                                  ? "default"
+                                                  ? "success"
                                                   : "secondary"
                                               }
-                                              className="text-xs"
+                                              className="text-xs font-medium"
                                             >
                                               {evaluations[noteKey].rating} (
                                               {evaluations[noteKey].score}/100)
@@ -727,35 +727,35 @@ function InterviewPrep() {
 
                                         {/* STAR Breakdown */}
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
-                                          <div className="bg-background/80 p-2 rounded border text-[11px] space-y-0.5">
-                                            <span className="font-bold text-foreground block uppercase text-[10px] tracking-wider text-muted-foreground">
+                                          <div className="bg-white p-2.5 rounded-lg border border-[#E2E8F0] text-[11px] space-y-0.5 dark:bg-background/80 dark:border-border">
+                                            <span className="font-bold text-[#1E293B] block uppercase text-[10px] tracking-wider text-[#64748B] dark:text-muted-foreground">
                                               Situation
                                             </span>
-                                            <p className="text-muted-foreground">
+                                            <p className="text-[#64748B] dark:text-muted-foreground">
                                               {evaluations[noteKey].starEvaluation.situation}
                                             </p>
                                           </div>
-                                          <div className="bg-background/80 p-2 rounded border text-[11px] space-y-0.5">
-                                            <span className="font-bold text-foreground block uppercase text-[10px] tracking-wider text-muted-foreground">
+                                          <div className="bg-white p-2.5 rounded-lg border border-[#E2E8F0] text-[11px] space-y-0.5 dark:bg-background/80 dark:border-border">
+                                            <span className="font-bold text-[#1E293B] block uppercase text-[10px] tracking-wider text-[#64748B] dark:text-muted-foreground">
                                               Task
                                             </span>
-                                            <p className="text-muted-foreground">
+                                            <p className="text-[#64748B] dark:text-muted-foreground">
                                               {evaluations[noteKey].starEvaluation.task}
                                             </p>
                                           </div>
-                                          <div className="bg-background/80 p-2 rounded border text-[11px] space-y-0.5">
-                                            <span className="font-bold text-foreground block uppercase text-[10px] tracking-wider text-muted-foreground">
+                                          <div className="bg-white p-2.5 rounded-lg border border-[#E2E8F0] text-[11px] space-y-0.5 dark:bg-background/80 dark:border-border">
+                                            <span className="font-bold text-[#1E293B] block uppercase text-[10px] tracking-wider text-[#64748B] dark:text-muted-foreground">
                                               Action
                                             </span>
-                                            <p className="text-muted-foreground">
+                                            <p className="text-[#64748B] dark:text-muted-foreground">
                                               {evaluations[noteKey].starEvaluation.action}
                                             </p>
                                           </div>
-                                          <div className="bg-background/80 p-2 rounded border text-[11px] space-y-0.5">
-                                            <span className="font-bold text-foreground block uppercase text-[10px] tracking-wider text-muted-foreground">
+                                          <div className="bg-white p-2.5 rounded-lg border border-[#E2E8F0] text-[11px] space-y-0.5 dark:bg-background/80 dark:border-border">
+                                            <span className="font-bold text-[#1E293B] block uppercase text-[10px] tracking-wider text-[#64748B] dark:text-muted-foreground">
                                               Result
                                             </span>
-                                            <p className="text-muted-foreground">
+                                            <p className="text-[#64748B] dark:text-muted-foreground">
                                               {evaluations[noteKey].starEvaluation.result}
                                             </p>
                                           </div>
@@ -763,20 +763,20 @@ function InterviewPrep() {
 
                                         <div className="grid sm:grid-cols-2 gap-3 pt-1">
                                           <div>
-                                            <span className="font-semibold text-emerald-600 dark:text-emerald-400 block mb-1">
+                                            <span className="font-semibold text-[#059669] dark:text-emerald-400 block mb-1">
                                               ✓ Strengths Observed:
                                             </span>
-                                            <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1 text-xs">
+                                            <ul className="list-disc list-inside space-y-1 text-[#64748B] pl-1 text-xs dark:text-muted-foreground">
                                               {evaluations[noteKey].strengths.map((s, idx) => (
                                                 <li key={idx}>{s}</li>
                                               ))}
                                             </ul>
                                           </div>
                                           <div>
-                                            <span className="font-semibold text-amber-600 dark:text-amber-400 block mb-1">
+                                            <span className="font-semibold text-[#D97706] dark:text-amber-400 block mb-1">
                                               ▲ Actionable Improvements:
                                             </span>
-                                            <ul className="list-disc list-inside space-y-1 text-muted-foreground pl-1 text-xs">
+                                            <ul className="list-disc list-inside space-y-1 text-[#64748B] pl-1 text-xs dark:text-muted-foreground">
                                               {evaluations[noteKey].improvements.map((imp, idx) => (
                                                 <li key={idx}>{imp}</li>
                                               ))}
@@ -786,12 +786,12 @@ function InterviewPrep() {
 
                                         {/* Dynamic Follow-Up Question */}
                                         {evaluations[noteKey].followUpQuestion && (
-                                          <div className="rounded-md bg-background border p-3 space-y-1.5 mt-2">
-                                            <div className="flex items-center gap-1.5 text-primary font-semibold text-xs">
+                                          <div className="rounded-lg bg-white border border-[#E2E8F0] p-3.5 space-y-1.5 mt-2 dark:bg-background dark:border-border">
+                                            <div className="flex items-center gap-1.5 text-[#6366F1] font-semibold text-xs">
                                               <MessagesSquare className="size-3.5" />
                                               <span>Interviewer Follow-Up Question:</span>
                                             </div>
-                                            <p className="font-medium text-foreground text-xs sm:text-sm pl-5">
+                                            <p className="font-medium text-[#1E293B] text-xs sm:text-sm pl-5 dark:text-foreground">
                                               "{evaluations[noteKey].followUpQuestion}"
                                             </p>
                                             <div className="pl-5 pt-1">
